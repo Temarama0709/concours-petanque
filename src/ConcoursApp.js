@@ -125,7 +125,7 @@ export default function ConcoursApp() {
 
   return (
     <div className="min-h-screen bg-amber-50 p-4 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Concours de Pétanque</h1>
+      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Calendrier Concours de Pétanque</h1>
 
       <div className="flex justify-center gap-2 flex-wrap">
         <Button className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold" onClick={() => setFiltre("tous")}>Tous</Button>
