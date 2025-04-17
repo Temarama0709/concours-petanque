@@ -1,5 +1,5 @@
 {
-  "name": "petanque-project-full",
+  "name": "petanque-app",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -11,17 +11,18 @@
   "dependencies": {
     "date-fns": "^2.29.3",
     "firebase": "^10.7.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.292.0",
-    "react": "^18.2.0",
-    "react-day-picker": "^8.9.0",
-    "react-dom": "^18.2.0",
+    "react": "18.2.0",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "18.2.0",
+    "react-leaflet": "^4.2.1",
     "react-scripts": "5.0.1"
   },
   "devDependencies": {
-    "autoprefix": "^1.0.1",
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17"
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.3.2"
   },
   "browserslist": {
     "production": [

@@ -42,30 +42,34 @@ try {
   console.error("Firestore not available", error);
 }
 
+import MapConcours from "./MapConcours";
+
 export default function ConcoursApp() {
   const [filtre, setFiltre] = useState("tous");
   const [selectedDate, setSelectedDate] = useState(null);
   const [concoursList, setConcoursList] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ title: "", date: "", lieu: "", type: "officiel" });
+  const [formData, setFormData] = useState({
+    title: "",
+    date: "",
+    lieu: "",
+    type: "officiel",
+    ville: "",
+    cp: ""
+  });
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [adminMode, setAdminMode] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     if (!db) return;
     const q = query(collection(db, "concours"), where("valide", "==", true));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const concours = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setConcoursList(concours);
-      },
-      (error) => {
-        console.error("Firestore error:", error);
-      }
-    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const concours = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setConcoursList(concours);
+    });
     return () => unsubscribe();
   }, [db]);
 
@@ -80,7 +84,7 @@ export default function ConcoursApp() {
   };
 
   const handleAddConcours = async () => {
-    if (!formData.title || !formData.date || !formData.lieu || !formData.type) {
+    if (!formData.title || !formData.date || !formData.lieu || !formData.type || !formData.ville || !formData.cp) {
       setFormError("Tous les champs sont obligatoires.");
       return;
     }
@@ -89,7 +93,7 @@ export default function ConcoursApp() {
         ...formData,
         valide: false
       });
-      setFormData({ title: "", date: "", lieu: "", type: "officiel" });
+      setFormData({ title: "", date: "", lieu: "", type: "officiel", ville: "", cp: "" });
       setShowForm(false);
       setFormError("");
       setSuccessMessage("Concours proposé avec succès ! En attente de validation.");
@@ -125,7 +129,7 @@ export default function ConcoursApp() {
 
   return (
     <div className="min-h-screen bg-amber-50 p-4 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Calendrier Concours de Pétanque</h1>
+      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Concours de Pétanque</h1>
 
       <div className="flex justify-center gap-2 flex-wrap">
         <Button className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold" onClick={() => setFiltre("tous")}>Tous</Button>
@@ -141,9 +145,11 @@ export default function ConcoursApp() {
 
       {showForm && (
         <div className="border p-4 rounded space-y-2 bg-white shadow">
-          <Input className="bg-white shadow-md" placeholder="Nom du concours" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
-          <Input className="bg-white shadow-md" type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
-          <Input className="bg-white shadow-md" placeholder="Lieu" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
+          <Input placeholder="Nom du concours" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+          <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
+          <Input placeholder="Lieu" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
+          <Input placeholder="Code postal" value={formData.cp} onChange={(e) => setFormData({ ...formData, cp: e.target.value })} />
+          <Input placeholder="Ville" value={formData.ville} onChange={(e) => setFormData({ ...formData, ville: e.target.value })} />
           <select className="w-full border rounded px-2 py-1 bg-white shadow" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
             <option value="officiel">Officiel</option>
             <option value="ouvert">Ouvert à tous</option>
@@ -154,6 +160,14 @@ export default function ConcoursApp() {
       )}
 
       {successMessage && <div className="text-green-600 text-sm text-center">{successMessage}</div>}
+
+      <div className="text-center">
+        <Button variant="outline" onClick={() => setShowMap(!showMap)}>
+          {showMap ? "Masquer la carte" : "Voir sur la carte"}
+        </Button>
+      </div>
+
+      {showMap && <MapConcours concoursList={concoursList} />}
 
       <div className="mt-4">
         <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className="rounded-md border w-full bg-white shadow" />
@@ -172,6 +186,7 @@ export default function ConcoursApp() {
                 <h2 className="text-lg font-semibold">{concours.title}</h2>
                 <p className="text-sm text-gray-600">{concours.date}</p>
                 <p className="text-sm">{concours.lieu}</p>
+                <p className="text-sm text-gray-700">{concours.cp} {concours.ville}</p>
                 <span className="text-xs uppercase bg-orange-200 text-orange-900 px-2 py-1 rounded inline-block mt-1">{concours.type}</span>
               </div>
               <button onClick={() => handleReminder(concours)} title="Activer un rappel">
@@ -190,45 +205,40 @@ export default function ConcoursApp() {
       )}
 
       {adminMode && db && <AdminPanel db={db} onValider={handleValider} onSupprimer={handleSupprimer} />}
-    </div>
+      </div>
   );
-}
-
-function AdminPanel({ db, onValider, onSupprimer }) {
-  const [propositions, setPropositions] = useState([]);
-
-  useEffect(() => {
-    if (!db) return;
-    const q = query(collection(db, "concours"), where("valide", "==", false));
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
+  function AdminPanel({ db, onValider, onSupprimer }) {
+    const [propositions, setPropositions] = useState([]);
+  
+    useEffect(() => {
+      if (!db) return;
+      const q = query(collection(db, "concours"), where("valide", "==", false));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
         const nonValides = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setPropositions(nonValides);
-      },
-      (error) => {
-        console.error("Firestore error:", error);
-      }
+      });
+      return () => unsubscribe();
+    }, [db]);
+  
+    return (
+      <div className="mt-8 space-y-4">
+        <h2 className="text-lg font-bold text-sky-700">Propositions à valider</h2>
+        {propositions.map((c) => (
+          <Card key={c.id} className="bg-stone-100 shadow">
+            <CardContent className="p-4">
+              <h3 className="font-semibold">{c.title}</h3>
+              <p className="text-sm text-gray-600">{c.date} - {c.lieu}</p>
+              <p className="text-sm">{c.cp} {c.ville}</p>
+              <div className="flex gap-2 mt-2">
+                <Button className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold" onClick={() => onValider(c.id)}>Valider</Button>
+                <Button className="bg-red-500 hover:bg-red-600 text-white font-bold" variant="destructive" onClick={() => onSupprimer(c.id)}>Supprimer</Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {propositions.length === 0 && <p className="text-sm text-gray-500">Aucune proposition en attente.</p>}
+      </div>
     );
-    return () => unsubscribe();
-  }, [db]);
-
-  return (
-    <div className="mt-8 space-y-4">
-      <h2 className="text-lg font-bold text-sky-700">Propositions à valider</h2>
-      {propositions.map((c) => (
-        <Card key={c.id} className="bg-stone-100 shadow">
-          <CardContent className="p-4">
-            <h3 className="font-semibold">{c.title}</h3>
-            <p className="text-sm text-gray-600">{c.date} - {c.lieu}</p>
-            <div className="flex gap-2 mt-2">
-              <Button className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold" onClick={() => onValider(c.id)}>Valider</Button>
-              <Button className="bg-red-500 hover:bg-red-600 text-white font-bold" variant="destructive" onClick={() => onSupprimer(c.id)}>Supprimer</Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-      {propositions.length === 0 && <p className="text-sm text-gray-500">Aucune proposition en attente.</p>}
-    </div>
-  );
+  }
+  
 }
