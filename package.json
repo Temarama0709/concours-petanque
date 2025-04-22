@@ -9,7 +9,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
-    "date-fns": "^2.29.3",
+    "date-fns": "^2.30.0",
     "firebase": "^10.7.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.292.0",
@@ -20,9 +20,9 @@
     "react-scripts": "5.0.1"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.21",
-    "tailwindcss": "^3.3.2"
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
   },
   "browserslist": {
     "production": [

@@ -1,12 +1,12 @@
 
 import React,{ useEffect, useState } from "react";
-import { Card, CardContent } from "./components/ui/card.js";
-import { Button } from "./components/ui/button.js";
+import { Card, CardContent } from "./components/ui/card";
+import { Button } from "./components/ui/button";
 import CalendarWithConcours from './components/ui/CalendarWithConcours.js';
-import { Input } from "./components/ui/input.js";
+import { Input } from "./components/ui/input";
 import { format } from "date-fns";
 import { Bell } from "lucide-react";
-import MapConcours from "./MapConcours.js";
+import MapConcours from "./MapConcours";
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
@@ -20,7 +20,6 @@ import {
   where,
   onSnapshot
 } from "firebase/firestore";
-
 
 const firebaseConfig = {
   apiKey: "AIzaSyA4-G44Gl2Et0twI_xq7TxGJIZWEPXHrUo",
@@ -46,12 +45,18 @@ try {
   console.error("Firestore not available", error);
 }
 
+const [concoursList, setConcoursList] = useState([]);
+const concoursFiltres = concoursList.filter(c => {
+  if (selectedDate && c.date !== format(selectedDate, "yyyy-MM-dd")) return false;
+  return true;
+});
+
+
 function ConcoursApp() {
   const [deleteMessage, setDeleteMessage] = useState("");
   const [filtre, setFiltre] = useState("tous");
   const [selectedDate, setSelectedDate] = useState(null);
   const [concoursList, setConcoursList] = useState([]);
-  const [selectedConcours, setSelectedConcours] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -67,25 +72,23 @@ function ConcoursApp() {
   const [adminMode, setAdminMode] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
   const [showMap, setShowMap] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-
 
   useEffect(() => {
     if (!db) return;
-    const q = query(collection(db, "concours"));
+    const q = query(collection(db, "concours"), where("valide", "==", true));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const concours = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      console.log("Liste concours récupérés :", concours);
       setConcoursList(concours);
     });
     return () => unsubscribe();
   }, [db]);
 
   const concoursFiltres = concoursList.filter((c) => {
-    const dateOk = !selectedDate || c.date === format(selectedDate, "yyyy-MM-dd");
-    const typeOk = filtre === "tous" || c.type === filtre;
-    return dateOk && typeOk;
+    if (filtre !== "tous" && c.type !== filtre) return false;
+    if (selectedDate && c.date !== format(selectedDate, "yyyy-MM-dd")) return false;
+    return true;
   });
-  
 
   const handleReminder = (concours) => {
     alert(`Rappel activé pour : ${concours.title} le ${concours.date}`);
@@ -115,8 +118,6 @@ function ConcoursApp() {
   const handleAdminLogin = () => {
     if (adminPassword === "admin123") {
       setAdminMode(true);
-      setShowLogin(false);        // masque le formulaire ✅
-      setAdminPassword("");
     } else {
       alert("Mot de passe incorrect");
     }
@@ -144,26 +145,38 @@ function ConcoursApp() {
   };
 
   return (
-    
     <div className="min-h-screen bg-amber-50 p-4 max-w-md mx-auto space-y-4">
       <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Concours de Pétanque</h1>
-      
-<div className="flex justify-between items-center mb-4">
-  <Button variant="outline" onClick={() => setShowForm(!showForm)}>
-    {showForm ? "Annuler" : "+ Proposer un concours"}
-  </Button>
 
-  {!adminMode ? (
-    <Button variant="outline" onClick={() => setShowLogin(true)}>
-      Connexion
-    </Button>
-  ) : (
-    <Button variant="ghost" onClick={() => setAdminMode(false)}>
-      Déconnexion
-    </Button>
-  )}
+      <div className="flex justify-center gap-2 flex-wrap">
+  <Button
+    className={filtre === "tous" ? "bg-black-600 text-white" : "bg-yellow-400 text-white"}
+    onClick={() => setFiltre("tous")}
+  >
+    Tous
+  </Button>
+  <Button
+    className={filtre === "officiel" ? "bg-black-600 text-white" : "bg-yellow-400 text-white"}
+    onClick={() => setFiltre("officiel")}
+  >
+    Officiels
+  </Button>
+  <Button
+    className={filtre === "ouvert" ? "bg-black-600 text-white" : "bg-yellow-400 text-white"}
+    onClick={() => setFiltre("ouvert")}
+  >
+    Ouverts à tous
+  </Button>
 </div>
-{showForm && (
+
+
+      <div className="text-center mt-2">
+        <Button variant="outline" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Annuler" : "+ Proposer un concours"}
+        </Button>
+      </div>
+
+      {showForm && (
         <div className="border p-4 rounded space-y-2 bg-white shadow">
           <Input placeholder="Nom du concours" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
           <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
@@ -205,43 +218,7 @@ function ConcoursApp() {
       )}
 
       {successMessage && <div className="text-green-600 text-sm text-center">{successMessage}</div>}
-{showLogin && (
-  <div className="bg-white border p-4 rounded shadow mb-4">
-    <Input
-      placeholder="Mot de passe admin"
-      type="password"
-      value={adminPassword}
-      onChange={(e) => setAdminPassword(e.target.value)}
-    />
-    <div className="mt-2 flex gap-2">
-      <Button onClick={handleAdminLogin}>Se connecter</Button>
-      <Button variant="ghost" onClick={() => setShowLogin(false)}>Annuler</Button>
-    </div>
-  </div>
-)}
 
-    
-      <div className="mb-4 w-full">
-      <label className="block text-sm font-medium text-amber-700 mb-1 text-left">  </label>
- 
-  <select
-    value={filtre}
-    onChange={(e) => setFiltre(e.target.value)}
-    className="border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-  >
-    <option value="tous">Tous les concours</option>
-    <option value="officiel">Officiels</option>
-    <option value="ouvert">Ouverts à tous</option>
-  </select>
-</div>
-
-  <CalendarWithConcours
-  selectedDate={selectedDate}
-  setSelectedDate={setSelectedDate}
-  concoursList={concoursList}
-  />
-
-    
       <div className="text-center">
         <Button variant="outline" onClick={() => setShowMap(!showMap)}>
           {showMap ? "Masquer la carte" : "Voir sur la carte"}
@@ -252,72 +229,69 @@ function ConcoursApp() {
 
       <div className="mt-4">
 
-     
+      <CalendarWithConcours
+  mode="single"
+  selected={selectedDate}
+  onSelect={setSelectedDate}
+/>
         
-      {selectedDate && (
-        <button onClick={() => setSelectedDate(null)} className="mt-2 bg-gray-200 px-2 py-1 rounded">
-          Réinitialiser la date
-        </button>
-      )}
+        {selectedDate && (
+          <Button variant="ghost" className="mt-2" onClick={() => setSelectedDate(null)}>
+            Réinitialiser la date
+          </Button>
+        )}
       </div>
 
-      
-      <table className="w-full text-sm mt-4 border border-gray-200 rounded overflow-hidden shadow-sm table-fixed">
-  <thead className="bg-sky-200 text-sky-800">
-    <tr>
-      <th className="px-1 py-1 w-[25%] text-left border-b">Date</th>
-      <th className="px-1 py-1 w-[25%] text-left border-b">Lieu</th>
-      <th className="px-1 py-1 w-[15%] text-left border-b">Type</th>
-      <th className="px-1 py-1 w-[15%] text-right border-b">Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {concoursFiltres
-      .filter(c => c.valide === true)
-      .map((concours, index) => (
-        <tr
-          key={concours.id}
-          className={`${
-            index % 2 === 0 ? "bg-white" : "bg-blue-50"
-          } hover:bg-green-100 border-t`}
-        >
-          <td className="px-1 py-1 text-left ">{concours.date}</td>
-          <td className="px-1 py-1 text-left ">{concours.ville}</td>
-          <td className="px-1 py-1 text-left ">{concours.type}</td>
-          <td className="px-1 py-1 text-right">
-            {adminMode ? (
-              <div className="flex gap-1 flex-wrap">
-                <Button size="sm" variant="ghost" onClick={() => handleSupprimer(concours.id)}>Supprimer</Button>
+      {concoursFiltres.map((concours) => (
+        <Card key={concours.id} className="bg-stone-100 mt-4 shadow-md">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-semibold">{concours.title}</h2>
+                <p className="text-sm text-gray-600">{concours.date}</p>
+                <p className="text-sm">{concours.lieu}</p>
+                <p className="text-sm text-gray-700">{concours.cp} {concours.ville}</p>
+                <span className="text-xs uppercase bg-orange-200 text-orange-900 px-2 py-1 rounded inline-block mt-1">{concours.type}</span>
               </div>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedConcours(concours)}
-              >
-                Voir
-              </Button>
-            )}
-          </td>
-        </tr>
-      ))}
-  </tbody>
-</table>
-
-
-
-{selectedConcours && (
-  <div className="border p-4 mt-4 rounded shadow bg-white space-y-2">
-    <h2 className="text-xl font-bold text-sky-700">{selectedConcours.title}</h2>
-    <p>📅 {selectedConcours.date}</p>
-    <p>📍 {selectedConcours.lieu}, {selectedConcours.cp} {selectedConcours.ville}</p>
-    <p>🏷️ Type : {selectedConcours.type}</p>
-    <Button variant="ghost" className="mt-2" onClick={() => setSelectedConcours(null)}>
-      Fermer
+              
+              {adminMode ? (
+  <div className="flex items-center gap-2">
+    <button onClick={() => handleReminder(concours)} title="Activer un rappel">
+      <Bell className="w-5 h-5 text-gray-600 hover:text-yellow-500" />
+    </button>
+    <Button
+      variant="destructive"
+      className="text-xs px-2 py-1"
+      onClick={() => handleSupprimer(concours.id)}
+    >
+      Supprimer
+    </Button>
+    <Button
+      variant="outline"
+      className="text-xs px-2 py-1"
+      onClick={() => alert("Modifier en cours")}
+    >
+      Modifier
     </Button>
   </div>
+) : (
+  <button onClick={() => handleReminder(concours)} title="Activer un rappel">
+    <Bell className="w-5 h-5 text-gray-600 hover:text-yellow-500" />
+  </button>
 )}
 
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {!adminMode && (
+        <div className="mt-8 text-center">
+          <Input placeholder="Mot de passe admin" type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} />
+          <Button className="mt-2" onClick={handleAdminLogin}>Connexion admin</Button>
+        
+        </div>
+      )}
       {adminMode && (
   <AdminPanel
     concoursList={concoursList}
@@ -331,13 +305,10 @@ function ConcoursApp() {
   );
 }
 function AdminPanel({ concoursList, handleValider, handleSupprimer }) {
-
-  
   return (
     <div className="mt-8 space-y-4">
       <h2 className="text-lg font-bold text-sky-700">Propositions à valider</h2>
-      {concoursList.filter(c => c.valide === false).map((c) => (
-        
+      {concoursList.filter(c => !c.valide== false).map((c) => (
         <Card key={c.id}>
           <CardContent className="p-4 space-y-2">
             <h3 className="font-semibold">{c.title}</h3>
@@ -352,8 +323,7 @@ function AdminPanel({ concoursList, handleValider, handleSupprimer }) {
         </Card>
        
       ))}
-      
-      {concoursList.filter(c => c.valide === false).length === 0 && (
+      {concoursList.filter(c => !c.valide).length === 0 && (
         <p className="text-sm text-gray-500">Aucune proposition en attente.</p>
       )}
       
