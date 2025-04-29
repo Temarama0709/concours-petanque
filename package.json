@@ -9,6 +9,7 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.2",
     "date-fns": "^2.30.0",
     "firebase": "^10.7.0",
     "leaflet": "^1.9.4",

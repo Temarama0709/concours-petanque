@@ -7,7 +7,8 @@ import { Input } from "./components/ui/input.js";
 import { format } from "date-fns";
 import { Bell } from "lucide-react";
 import MapConcours from "./MapConcours.js";
-
+import { parse } from "date-fns";
+import { fr } from "date-fns/locale";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getFirestore,
@@ -68,6 +69,57 @@ function ConcoursApp() {
   const [adminPassword, setAdminPassword] = useState("");
   const [showMap, setShowMap] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const handleAfficheUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+  
+      const res = await fetch("https://api.ocr.space/parse/image", {
+        method: "POST",
+        headers: { apikey: "helloworld" }, // clé publique gratuite
+        body: new URLSearchParams({
+          base64Image: `data:${file.type};base64,${base64}`,
+          language: "fre"
+        })
+      });
+  
+      const data = await res.json();
+      const text = data?.ParsedResults?.[0]?.ParsedText || "";
+  
+      console.log("Texte OCR extrait :", text);
+  
+      // Extraction avec protection
+      const title = /concours.*pétanque/i.test(text) ? "Concours Pétanque" : "Concours";
+      const dateStr = text.match(/(\d{1,2} \w+ 202\d)/i)?.[1] || "";
+  
+      let formDate = "";
+      try {
+        const parsedDate = parse(dateStr, "d MMMM yyyy", new Date(), { locale: fr });
+        formDate = parsedDate.toISOString().slice(0, 10);
+      } catch (err) {
+        console.warn("Date invalide :", dateStr);
+      }
+  
+      const ville = text.match(/(?:à|au)\s+([A-ZÉÈÂ].+)/i)?.[1]?.split("\n")[0] || "";
+      const cpMatch = text.match(/\b(0[1-9]|[1-8][0-9]|9[0-5])[0-9]{3}\b/);
+      const cp = cpMatch ? cpMatch[0] : "";
+  
+      setFormData(f => ({
+        ...f,
+        title,
+        date: formDate || f.date,
+        ville: ville || f.ville,
+        cp: cp || f.cp
+      }));
+  
+      alert("✅ Champs remplis automatiquement !");
+    };
+    reader.readAsDataURL(file);
+  };
+  const [departementFiltre, setDepartementFiltre] = useState([]);
 
 
   useEffect(() => {
@@ -80,11 +132,13 @@ function ConcoursApp() {
     return () => unsubscribe();
   }, [db]);
 
-  const concoursFiltres = concoursList.filter((c) => {
-    const dateOk = !selectedDate || c.date === format(selectedDate, "yyyy-MM-dd");
-    const typeOk = filtre === "tous" || c.type === filtre;
-    return dateOk && typeOk;
+  const concoursFiltres = concoursList.filter(c => {
+    if (filtre !== "tous" && c.type !== filtre) return false;
+    if (selectedDate && c.date !== format(selectedDate, "yyyy-MM-dd")) return false;
+    if (departementFiltre.length > 0 && !departementFiltre.some(dep => c.cp.startsWith(dep))) return false;
+    return true;
   });
+  
   
 
   const handleReminder = (concours) => {
@@ -146,7 +200,13 @@ function ConcoursApp() {
   return (
     
     <div className="min-h-screen bg-amber-50 p-4 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Concours de Pétanque</h1>
+  <h1 className="text-4xl font-extrabold text-center text-yellow-700 uppercase tracking-wide drop-shadow-md">
+  Concours Pétanque
+</h1>
+<p className="text-center text-sm text-gray-600 italic mt-1">
+  Calendrier & inscriptions faciles
+</p>
+
       
 <div className="flex justify-between items-center mb-4">
   <Button variant="outline" onClick={() => setShowForm(!showForm)}>
@@ -164,44 +224,71 @@ function ConcoursApp() {
   )}
 </div>
 {showForm && (
+ 
         <div className="border p-4 rounded space-y-2 bg-white shadow">
           <Input placeholder="Nom du concours" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
           <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
-          <Input placeholder="Lieu" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
-          <Input
-            placeholder="Code postal"
-            value={formData.cp}
-            onChange={(e) => setFormData({ ...formData, cp: e.target.value })}
-            onBlur={() => {
-              if (formData.cp.length === 5) {
-                fetch(`https://apicarto.ign.fr/api/codes-postaux/communes/${formData.cp}`)
-                  .then(res => res.json())
-                  .then(data => {
-                    if (data.length) {
-                      setVilleOptions(data.map(v => v.nomCommune));
-                      setFormData(f => ({ ...f, ville: data[0].nomCommune }));
-                    }
-                  });
-              }
-            }}
-          />
+          <Input placeholder="Adresse" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
+          <input
+  type="text"
+  placeholder="CP : ex (74000)"
+  value={formData.cp}
+  onChange={(e) => {
+    const value = e.target.value;
+    setFormData({ ...formData, cp: value });
+
+    // Déclencher le fetch avec value (pas formData.cp)
+    if (value.length === 5) {
+      fetch(`https://apicarto.ign.fr/api/codes-postaux/communes/${value}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.length > 0) {
+            const villes = data.map(v => v.nomCommune);
+            setVilleOptions(villes);
+            setFormData(f => ({ ...f, ville: villes[0] }));
+          } else {
+            setVilleOptions([]);
+          }
+        })
+        .catch(() => setVilleOptions([]));
+    } else {
+      setVilleOptions([]);
+    }
+  }}
+  className="border px-2 py-1 rounded w-full"
+/>
+
           {villeOptions.length > 0 ? (
-            <select className="w-full border rounded px-2 py-1" value={formData.ville} onChange={(e) => setFormData({ ...formData, ville: e.target.value })}>
+            <select className="w-full border rounded px-2 py-1" 
+            value={formData.ville} 
+            onChange={(e) => setFormData({ ...formData, ville: e.target.value })}>
               <option value="">-- Choisir la ville --</option>
               {villeOptions.map((v, i) => (
                 <option key={i} value={v}>{v}</option>
               ))}
             </select>
           ) : (
-            <Input placeholder="Ville" value={formData.ville} onChange={(e) => setFormData({ ...formData, ville: e.target.value })} />
+            <Input placeholder="Ville"
+            value={formData.ville} 
+            onChange={(e) => setFormData({ ...formData, ville: e.target.value })} />
           )}
+
           <select className="w-full border rounded px-2 py-1" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
             <option value="officiel">Officiel</option>
             <option value="ouvert">Ouvert à tous</option>
           </select>
           {formError && <p className="text-red-500 text-sm">{formError}</p>}
           <Button onClick={handleAddConcours}>Envoyer</Button>
+          <label className="block text-sm font-medium text-stone-700">Télécharger une affiche</label>
+  <input
+    type="file"
+    accept="image/*,.pdf"
+    onChange={handleAfficheUpload}
+    className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+  />
+        
         </div>
+        
       )}
 
       {successMessage && <div className="text-green-600 text-sm text-center">{successMessage}</div>}
@@ -221,19 +308,34 @@ function ConcoursApp() {
 )}
 
     
-      <div className="mb-4 w-full">
-      <label className="block text-sm font-medium text-amber-700 mb-1 text-left">  </label>
- 
-  <select
-    value={filtre}
-    onChange={(e) => setFiltre(e.target.value)}
-    className="border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-  >
-    <option value="tous">Tous les concours</option>
-    <option value="officiel">Officiels</option>
-    <option value="ouvert">Ouverts à tous</option>
-  </select>
+<div className="flex flex-wrap gap-4 mb-4">
+  
+  {/* Filtre Type */}
+  <div className="flex-1 min-w-[120px]">
+
+    <select
+      value={filtre}
+      onChange={(e) => setFiltre(e.target.value)}
+      className="border border-stone-300 rounded px-3 py-2 w-full bg-amber-100 text-stone-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+    >
+      <option value="tous">Tous les concours</option>
+      <option value="officiel">Officiels</option>
+      <option value="ouvert">Ouverts à tous</option>
+    </select>
+  </div>
+
+  {/* Filtre Département */}
+  <MultiSelectDepartement
+  departementFiltre={departementFiltre}
+  setDepartementFiltre={setDepartementFiltre}
+/>
+
+
+
 </div>
+
+
+
 
   <CalendarWithConcours
   selectedDate={selectedDate}
@@ -360,6 +462,49 @@ function AdminPanel({ concoursList, handleValider, handleSupprimer }) {
       
 
     </div>
+  );
+}
+import { Menu } from '@headlessui/react';
+
+function MultiSelectDepartement({ departementFiltre, setDepartementFiltre }) {
+  const DEPARTEMENTS = [
+    { code: "01", nom: "Ain" },
+    { code: "69", nom: "Rhône" },
+    { code: "74", nom: "Haute-Savoie" },
+    { code: "38", nom: "Isère" }
+  ];
+
+  const toggleDepartement = (code) => {
+    setDepartementFiltre((prev) =>
+      prev.includes(code) ? prev.filter((d) => d !== code) : [...prev, code]
+    );
+  };
+
+  return (
+    <Menu as="div" className="relative inline-block text-left">
+      <Menu.Button className="border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm">
+        📍 Départements
+      </Menu.Button>
+
+      <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+        {DEPARTEMENTS.map((dep) => (
+          <Menu.Item key={dep.code}>
+            {({ active }) => (
+              <div
+                className={`flex items-center gap-2 px-4 py-2 ${active ? 'bg-amber-100' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={departementFiltre.includes(dep.code)}
+                  onChange={() => toggleDepartement(dep.code)}
+                />
+                <span>{dep.code} - {dep.nom}</span>
+              </div>
+            )}
+          </Menu.Item>
+        ))}
+      </Menu.Items>
+    </Menu>
   );
 }
 

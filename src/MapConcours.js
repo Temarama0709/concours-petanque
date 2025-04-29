@@ -18,7 +18,7 @@ export default function MapConcours({ concoursList }) {
     const fetchCoords = async () => {
       const coords = await Promise.all(
         concoursList.map(async (c) => {
-          const query = encodeURIComponent(`${c.lieu}, ${c.cp} ${c.ville}`);
+          const query = encodeURIComponent(`${c.cp}`);
           try {
             const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json`);
             const data = await res.json();
