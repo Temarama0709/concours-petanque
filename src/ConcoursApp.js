@@ -59,8 +59,11 @@ function ConcoursApp() {
     date: "",
     lieu: "",
     type: "officiel",
+    format: "doublette",
+    prix: "" ,
     ville: "",
     cp: ""
+          
   });
   const [villeOptions, setVilleOptions] = useState([]);
   const [formError, setFormError] = useState("");
@@ -146,7 +149,7 @@ function ConcoursApp() {
   };
 
   const handleAddConcours = async () => {
-    if (!formData.title || !formData.date || !formData.lieu || !formData.type || !formData.ville || !formData.cp) {
+    if (!formData.title || !formData.date || !formData.lieu || !formData.type || !formData.ville || !formData.cp || !formData.format || !formData.prix) {
       setFormError("Tous les champs sont obligatoires.");
       return;
     }
@@ -196,6 +199,8 @@ function ConcoursApp() {
       console.error("Erreur validation:", error);
     }
   };
+  const [showLive, setShowLive] = useState(false);
+
 
   return (
     
@@ -212,6 +217,14 @@ function ConcoursApp() {
   <Button variant="outline" onClick={() => setShowForm(!showForm)}>
     {showForm ? "Annuler" : "+ Proposer un concours"}
   </Button>
+
+{showLive && <LiveStream onClose={() => setShowLive(false)} />}
+
+<Button onClick={() => setShowLive(true)} className="bg-blue-300 text-white">
+  🎥 Démarrer un live
+</Button>
+
+
 
   {!adminMode ? (
     <Button variant="outline" onClick={() => setShowLogin(true)}>
@@ -257,6 +270,37 @@ function ConcoursApp() {
   }}
   className="border px-2 py-1 rounded w-full"
 />
+{/* Type d'équipe */}
+<div className="mb-2">
+
+  <select
+    
+    value={formData.format}
+    onChange={(e) => setFormData({ ...formData, format: e.target.value })}
+    className="border px-2 py-1 rounded w-full"
+  >
+   
+    <option value="Tete a tete Senior">Tete a tete Senior</option>
+    <option value="Doublette Senior">Doublette Senior</option>
+    <option value="Triplette Senior">Triplette Senior</option>
+    <option value="Tete a tete Feminin">Tete a tete Feminin</option>
+    <option value="Doublette Feminin">Doublette Feminin</option>
+    <option value="Triplette Feminin">Triplette Feminin</option>
+  </select>
+</div>
+
+{/* Prix d'inscription */}
+<div className="mb-2">
+
+  <input
+    type="number"
+    min="0"
+    value={formData.prix}
+    onChange={(e) => setFormData({ ...formData, prix: e.target.value })}
+    className="border px-2 py-1 rounded w-full"
+    placeholder="Tarif par équipes"
+  />
+</div>
 
           {villeOptions.length > 0 ? (
             <select className="w-full border rounded px-2 py-1" 
@@ -308,10 +352,8 @@ function ConcoursApp() {
 )}
 
     
-<div className="flex flex-wrap gap-4 mb-4">
-  
-  {/* Filtre Type */}
-  <div className="flex-1 min-w-[120px]">
+<div className="flex flex-wrap gap-4 mb-4"> 
+    <div className="flex-1 min-w-[120px]">   {/* Filtre Type */}   {/* Filtre Département */}
 
     <select
       value={filtre}
@@ -322,9 +364,9 @@ function ConcoursApp() {
       <option value="officiel">Officiels</option>
       <option value="ouvert">Ouverts à tous</option>
     </select>
-  </div>
+</div>
 
-  {/* Filtre Département */}
+
   <MultiSelectDepartement
   departementFiltre={departementFiltre}
   setDepartementFiltre={setDepartementFiltre}
@@ -334,15 +376,11 @@ function ConcoursApp() {
 
 </div>
 
-
-
-
   <CalendarWithConcours
   selectedDate={selectedDate}
   setSelectedDate={setSelectedDate}
   concoursList={concoursList}
   />
-
     
       <div className="text-center">
         <Button variant="outline" onClick={() => setShowMap(!showMap)}>
@@ -365,7 +403,7 @@ function ConcoursApp() {
 
       
       <table className="w-full text-sm mt-4 border border-gray-200 rounded overflow-hidden shadow-sm table-fixed">
-  <thead className="bg-sky-200 text-sky-800">
+        <thead className="bg-sky-200 text-sky-800">
     <tr>
       <th className="px-1 py-1 w-[25%] text-left border-b">Date</th>
       <th className="px-1 py-1 w-[25%] text-left border-b">Lieu</th>

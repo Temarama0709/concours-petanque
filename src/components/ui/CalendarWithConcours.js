@@ -4,6 +4,17 @@ import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import "react-day-picker/dist/style.css";
 
+const getConcoursCountPerDay = (concoursList) => {
+  const map = {};
+  concoursList.forEach(c => {
+    if (c.date) {
+      map[c.date] = (map[c.date] || 0) + 1;
+    }
+  });
+  return map;
+};
+
+
 export default function CalendarWithConcours({ selectedDate, setSelectedDate, concoursList = [] }) {
 
   const concoursParJour = concoursList.reduce((acc, c) => {
@@ -27,25 +38,38 @@ export default function CalendarWithConcours({ selectedDate, setSelectedDate, co
       </div>
     );
   };
+  const concoursPerDay = getConcoursCountPerDay(concoursList);
 
   return (
     <div className="w-full max-w-md mx-auto mt-2 rounded border bg-white shadow p-4">
-      <DayPicker
-      
-        mode="single"
-        selected={selectedDate}
-        onSelect={(date) => {
-          setSelectedDate(date);
-        }}
-        dayContent={renderDay}
-        showOutsideDays
+<DayPicker
+  selected={selectedDate}
+  onDayClick={setSelectedDate}
+  modifiersClassNames={{
+    selected: "bg-sky-500 text-white"
+  }}
+  className="rounded-md border bg-white p-4"
+  showOutsideDays
+  components={{
+    DayContent: (date) => {
+      const dateStr = format(date.date, "yyyy-MM-dd");
+      const count = concoursPerDay[dateStr] || 0;
+  
+      return (
+        <div className="relative w-full h-full flex justify-center items-center">
+          <div>{date.date.getDate()}</div>
+          {count > 0 && (
+            <span className="absolute top-0 right-0 text-[10px] bg-yellow-400 text-black rounded-full w-4 h-4 flex items-center justify-center">
+              {count}
+            </span>
+          )}
+        </div>
+      );
+    }
+  }}
+  
+/>
 
-        styles={{
-          root: { width: '100%' },
-          months: { display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)' },
-          day: { width: '100%', aspectRatio: '1 / 1', padding: 0 }
-        }}
-      />
     </div>
   );
 }
