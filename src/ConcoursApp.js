@@ -3,6 +3,7 @@ import React,{ useEffect, useState } from "react";
 import { Card, CardContent } from "./components/ui/card.js";
 import { Button } from "./components/ui/button.js";
 import CalendarWithConcours from './components/ui/CalendarWithConcours.js';
+import LiveStream from "./components/ui/LiveStream.js";
 import { Input } from "./components/ui/input.js";
 import { format } from "date-fns";
 import { Bell } from "lucide-react";
@@ -217,8 +218,7 @@ function ConcoursApp() {
   <Button variant="outline" onClick={() => setShowForm(!showForm)}>
     {showForm ? "Annuler" : "+ Proposer un concours"}
   </Button>
-
-{showLive && <LiveStream onClose={() => setShowLive(false)} />}
+  {showLive && <LiveStream onClose={() => setShowLive(false)} />}
 
 <Button onClick={() => setShowLive(true)} className="bg-blue-300 text-white">
   🎥 Démarrer un live
@@ -474,6 +474,7 @@ function AdminPanel({ concoursList, handleValider, handleSupprimer }) {
 
   
   return (
+    
     <div className="mt-8 space-y-4">
       <h2 className="text-lg font-bold text-sky-700">Propositions à valider</h2>
       {concoursList.filter(c => c.valide === false).map((c) => (
@@ -497,8 +498,6 @@ function AdminPanel({ concoursList, handleValider, handleSupprimer }) {
         <p className="text-sm text-gray-500">Aucune proposition en attente.</p>
       )}
       
-      
-
     </div>
   );
 }
