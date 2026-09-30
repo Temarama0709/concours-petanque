@@ -18,10 +18,9 @@ n'importe qui dans le navigateur). La connexion passe maintenant par Firebase :
 
 1. Console Firebase → **Authentication** → *Sign-in method* → activer **E-mail/Mot de passe**.
 2. **Authentication** → *Users* → **Ajouter un utilisateur** (votre email + un mot de passe solide).
-   Copier son **UID**.
-3. **Firestore Database** → créer une collection `admins` avec un document dont
-   l'identifiant est cet **UID** (le contenu peut être vide, par ex. `nom: "Moi"`).
-4. Publier les règles de sécurité : copier le contenu de `firestore.rules` dans
-   **Firestore → Règles**, ou `firebase deploy --only firestore:rules`.
+3. Publier les règles de sécurité : copier le contenu de `firestore.rules` dans
+   **Firestore → Règles** puis **Publier** (ou `firebase deploy --only firestore:rules`).
 
-Seuls les comptes présents dans `admins` peuvent valider ou supprimer des concours.
+Seuls les comptes dont l'UID figure dans `firestore.rules` (et dans `src/admins.js`)
+peuvent valider ou supprimer des concours. Pour ajouter un admin, ajoutez son UID
+aux deux endroits puis republiez les règles.

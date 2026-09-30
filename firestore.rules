@@ -2,9 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // UID des administrateurs (Firebase Authentication → Users).
+    // Pour ajouter un admin : ajouter son UID dans cette liste ET dans src/admins.js.
     function isAdmin() {
       return request.auth != null
-        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+        && request.auth.uid in ['oQm4XO9c1xf8WaTcpvswIah52ur2'];
     }
 
     function isValidProposal(d) {
@@ -28,10 +30,5 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    match /admins/{uid} {
-      // Un utilisateur peut seulement vérifier s'il est admin. La liste se gère depuis la console.
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
-    }
   }
 }

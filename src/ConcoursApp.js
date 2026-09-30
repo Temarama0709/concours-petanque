@@ -5,6 +5,7 @@ import CalendarWithConcours from "./components/ui/CalendarWithConcours.js";
 import { Input } from "./components/ui/input.js";
 import MapConcours from "./MapConcours.js";
 import { db, auth } from "./firebase.js";
+import { ADMIN_UIDS } from "./admins.js";
 import { downloadIcs, formatLong, formatShort, toKey, todayKey } from "./lib/dates.js";
 
 import {
@@ -13,7 +14,6 @@ import {
   updateDoc,
   doc,
   deleteDoc,
-  getDoc,
   query,
   where,
   onSnapshot,
@@ -53,20 +53,11 @@ function ConcoursApp() {
     setTimeout(() => setFlash(null), 4000);
   };
 
-  // Authentification : un utilisateur est admin s'il possède un document admins/{uid}
+  // Authentification : un utilisateur est admin si son UID est dans ADMIN_UIDS
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
+    return onAuthStateChanged(auth, (u) => {
       setUser(u);
-      if (!u) {
-        setIsAdmin(false);
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(db, "admins", u.uid));
-        setIsAdmin(snap.exists());
-      } catch {
-        setIsAdmin(false);
-      }
+      setIsAdmin(!!u && ADMIN_UIDS.includes(u.uid));
     });
   }, []);
 
