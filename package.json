@@ -6,7 +6,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "react-scripts build && npx -y firebase-tools deploy --only hosting,firestore:rules"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

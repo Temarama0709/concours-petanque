@@ -11,6 +11,18 @@ npm install
 npm start
 ```
 
+## Mettre en ligne (Firebase Hosting)
+
+Prérequis : [Node.js](https://nodejs.org) (version LTS) installé sur l'ordinateur.
+
+```bash
+npm install
+npx firebase-tools login   # une seule fois : connexion avec le compte Google du projet
+npm run deploy             # construit l'app et publie le site + les règles Firestore
+```
+
+L'application est ensuite disponible sur https://petanque-concours.web.app
+
 ## Accès administrateur (Firebase Authentication)
 
 Le mot de passe admin n'est plus écrit dans le code (il était visible par
