@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidProposal(d) {
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'ville', 'cp', 'valide', 'createdAt'])
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 120
+        && d.lieu is string && d.lieu.size() > 0 && d.lieu.size() <= 200
+        && d.ville is string && d.ville.size() > 0 && d.ville.size() <= 100
+        && d.cp is string && d.cp.matches('^[0-9]{5}$')
+        && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.type in ['officiel', 'ouvert']
+        && d.valide == false
+        && d.createdAt == request.time;
+    }
+
+    match /concours/{id} {
+      // Tout le monde voit les concours validés ; les admins voient aussi les propositions.
+      allow read: if resource.data.valide == true || isAdmin();
+      // Tout le monde peut proposer un concours, qui arrive non validé.
+      allow create: if isValidProposal(request.resource.data);
+      // Seuls les admins valident, modifient ou suppriment.
+      allow update, delete: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      // Un utilisateur peut seulement vérifier s'il est admin. La liste se gère depuis la console.
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}
