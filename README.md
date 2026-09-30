@@ -33,6 +33,7 @@ n'importe qui dans le navigateur). La connexion passe maintenant par Firebase :
 3. Publier les règles de sécurité : copier le contenu de `firestore.rules` dans
    **Firestore → Règles** puis **Publier** (ou `firebase deploy --only firestore:rules`).
 
-Seuls les comptes dont l'UID figure dans `firestore.rules` (et dans `src/admins.js`)
+Seuls les comptes dont l'UID figure dans `firestore.rules` (et dans `src/admins.js`),
+ou qui ont reçu le droit `admin` via la fonction `setAdmin` (`functions/index.js`),
 peuvent valider ou supprimer des concours. Pour ajouter un admin, ajoutez son UID
-aux deux endroits puis republiez les règles.
+aux deux endroits puis relancez `npm run deploy`.

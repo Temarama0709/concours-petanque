@@ -2,21 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // UID des administrateurs (Firebase Authentication → Users).
-    // Pour ajouter un admin : ajouter son UID dans cette liste ET dans src/admins.js.
+    // Admin = UID listé ici (et dans src/admins.js), ou compte ayant reçu le
+    // droit "admin" via la fonction setAdmin (functions/index.js).
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid in ['oQm4XO9c1xf8WaTcpvswIah52ur2'];
+        && (request.auth.uid in ['oQm4XO9c1xf8WaTcpvswIah52ur2']
+            || request.auth.token.admin == true);
     }
 
     function isValidProposal(d) {
-      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'ville', 'cp', 'valide', 'createdAt'])
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'createdAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.lieu is string && d.lieu.size() > 0 && d.lieu.size() <= 200
         && d.ville is string && d.ville.size() > 0 && d.ville.size() <= 100
         && d.cp is string && d.cp.matches('^[0-9]{5}$')
         && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.type in ['officiel', 'ouvert']
+        && d.format in ['Tete a tete Senior', 'Doublette Senior', 'Triplette Senior',
+                        'Tete a tete Feminin', 'Doublette Feminin', 'Triplette Feminin']
+        && d.prix is number && d.prix >= 0 && d.prix <= 10000
         && d.valide == false
         && d.createdAt == request.time;
     }

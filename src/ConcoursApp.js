@@ -3,8 +3,11 @@ import { Card, CardContent } from "./components/ui/card.js";
 import { Button } from "./components/ui/button.js";
 import CalendarWithConcours from "./components/ui/CalendarWithConcours.js";
 import { Input } from "./components/ui/input.js";
+import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
-import { db, auth } from "./firebase.js";
+import { db, auth } from "./utils/firebase.js";
+import ConnexionForm from "./utils/ConnexionForm.js";
+import { lireAffiche } from "./lib/ocrAffiche.js";
 import { ADMIN_UIDS } from "./admins.js";
 import { downloadIcs, formatLong, formatShort, toKey, todayKey } from "./lib/dates.js";
 
@@ -19,10 +22,26 @@ import {
   onSnapshot,
   serverTimestamp
 } from "firebase/firestore";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 const TYPE_LABELS = { officiel: "Officiel", ouvert: "Ouvert à tous" };
-const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", ville: "", cp: "" };
+const FORMATS = [
+  "Tete a tete Senior",
+  "Doublette Senior",
+  "Triplette Senior",
+  "Tete a tete Feminin",
+  "Doublette Feminin",
+  "Triplette Feminin"
+];
+const FORMAT_LABELS = {
+  "Tete a tete Senior": "Tête-à-tête Senior",
+  "Doublette Senior": "Doublette Senior",
+  "Triplette Senior": "Triplette Senior",
+  "Tete a tete Feminin": "Tête-à-tête Féminin",
+  "Doublette Feminin": "Doublette Féminin",
+  "Triplette Feminin": "Triplette Féminin"
+};
+const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "" };
 
 const byDate = (a, b) => (a.date || "").localeCompare(b.date || "");
 
@@ -30,6 +49,7 @@ function ConcoursApp() {
   const [flash, setFlash] = useState(null); // { type: "success" | "error", text }
   const [filtre, setFiltre] = useState("tous");
   const [recherche, setRecherche] = useState("");
+  const [departementFiltre, setDepartementFiltre] = useState([]);
   const [afficherPasses, setAfficherPasses] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [concoursList, setConcoursList] = useState([]);
@@ -41,10 +61,9 @@ function ConcoursApp() {
   const [villeOptions, setVilleOptions] = useState([]);
   const [formError, setFormError] = useState("");
   const [sending, setSending] = useState(false);
+  const [lectureAffiche, setLectureAffiche] = useState(false);
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [login, setLogin] = useState({ email: "", password: "" });
-  const [loginError, setLoginError] = useState("");
   const [showMap, setShowMap] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -53,11 +72,24 @@ function ConcoursApp() {
     setTimeout(() => setFlash(null), 4000);
   };
 
-  // Authentification : un utilisateur est admin si son UID est dans ADMIN_UIDS
+  // Authentification : admin si l'UID est dans ADMIN_UIDS ou si le compte a le droit "admin"
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
+    return onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setIsAdmin(!!u && ADMIN_UIDS.includes(u.uid));
+      if (!u) {
+        setIsAdmin(false);
+        return;
+      }
+      if (ADMIN_UIDS.includes(u.uid)) {
+        setIsAdmin(true);
+        return;
+      }
+      try {
+        const token = await u.getIdTokenResult();
+        setIsAdmin(token.claims.admin === true);
+      } catch {
+        setIsAdmin(false);
+      }
     });
   }, []);
 
@@ -102,6 +134,7 @@ function ConcoursApp() {
         return false;
       }
       if (filtre !== "tous" && c.type !== filtre) return false;
+      if (departementFiltre.length > 0 && !departementFiltre.some((dep) => (c.cp || "").startsWith(dep))) return false;
       if (terme) {
         const texte = `${c.title} ${c.lieu} ${c.ville}`.toLowerCase();
         // "13" trouve tout le département, "13400" le code postal exact
@@ -109,7 +142,7 @@ function ConcoursApp() {
       }
       return true;
     });
-  }, [concoursList, selectedDate, afficherPasses, filtre, recherche]);
+  }, [concoursList, selectedDate, afficherPasses, filtre, departementFiltre, recherche]);
 
   const updateForm = (champ, valeur) => setFormData((f) => ({ ...f, [champ]: valeur }));
 
@@ -127,6 +160,32 @@ function ConcoursApp() {
     }
   };
 
+  const handleAfficheUpload = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setLectureAffiche(true);
+    setFormError("");
+    try {
+      const infos = await lireAffiche(file);
+      setFormData((f) => ({
+        ...f,
+        title: infos.title || f.title,
+        date: infos.date || f.date,
+        ville: infos.ville || f.ville,
+        cp: infos.cp || f.cp,
+        format: infos.format || f.format
+      }));
+      if (infos.cp) chercherVilles(infos.cp);
+      showFlash("success", "✅ Champs remplis depuis l'affiche : vérifiez-les avant d'envoyer.");
+    } catch (error) {
+      console.error("Lecture de l'affiche:", error);
+      setFormError("Impossible de lire l'affiche. Remplissez les champs à la main.");
+    } finally {
+      setLectureAffiche(false);
+    }
+  };
+
   const handleAddConcours = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(Object.entries(formData).map(([k, v]) => [k, v.trim()]));
@@ -138,6 +197,11 @@ function ConcoursApp() {
       setFormError("Le code postal doit contenir 5 chiffres.");
       return;
     }
+    const prix = Number(data.prix.replace(",", "."));
+    if (!Number.isFinite(prix) || prix < 0 || prix > 10000) {
+      setFormError("Le tarif doit être un nombre positif.");
+      return;
+    }
     if (data.date < todayKey()) {
       setFormError("La date du concours est déjà passée.");
       return;
@@ -146,6 +210,7 @@ function ConcoursApp() {
     try {
       await addDoc(collection(db, "concours"), {
         ...data,
+        prix,
         valide: false,
         createdAt: serverTimestamp()
       });
@@ -159,18 +224,6 @@ function ConcoursApp() {
       setFormError("L'envoi a échoué. Réessayez dans un instant.");
     } finally {
       setSending(false);
-    }
-  };
-
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    setLoginError("");
-    try {
-      await signInWithEmailAndPassword(auth, login.email.trim(), login.password);
-      setShowLogin(false);
-      setLogin({ email: "", password: "" });
-    } catch {
-      setLoginError("Email ou mot de passe incorrect.");
     }
   };
 
@@ -200,7 +253,14 @@ function ConcoursApp() {
 
   return (
     <div className="min-h-screen bg-amber-50 p-4 max-w-md mx-auto space-y-4">
-      <h1 className="text-3xl font-bold text-center text-sky-700 mb-4">Concours de Pétanque</h1>
+      <div className="mb-4">
+        <h1 className="text-4xl font-extrabold text-center text-yellow-700 uppercase tracking-wide drop-shadow-md">
+          Concours Pétanque
+        </h1>
+        <p className="text-center text-sm text-gray-600 italic mt-1">
+          Calendrier & inscriptions faciles
+        </p>
+      </div>
 
       <div className="flex justify-between items-center mb-4">
         <Button variant="outline" onClick={() => setShowForm(!showForm)}>
@@ -219,37 +279,28 @@ function ConcoursApp() {
       </div>
 
       {showLogin && !user && (
-        <form onSubmit={handleAdminLogin} className="bg-white border p-4 rounded shadow space-y-2">
-          <Input
-            type="email"
-            placeholder="Email admin"
-            autoComplete="username"
-            value={login.email}
-            onChange={(e) => setLogin({ ...login, email: e.target.value })}
-          />
-          <Input
-            type="password"
-            placeholder="Mot de passe"
-            autoComplete="current-password"
-            value={login.password}
-            onChange={(e) => setLogin({ ...login, password: e.target.value })}
-          />
-          {loginError && <p className="text-red-500 text-sm">{loginError}</p>}
-          <div className="flex gap-2">
-            <Button type="submit">Se connecter</Button>
-            <Button variant="ghost" onClick={() => setShowLogin(false)}>Annuler</Button>
-          </div>
-        </form>
+        <ConnexionForm onSuccess={() => setShowLogin(false)} onCancel={() => setShowLogin(false)} />
       )}
 
-      {user && !isAdmin && (
+      {user && (
         <p className="text-sm text-center text-stone-600">
-          Connecté en tant que {user.email}, mais ce compte n'a pas les droits administrateur.
+          Connecté : {user.email}{isAdmin && " (admin)"}
         </p>
       )}
 
       {showForm && (
         <form onSubmit={handleAddConcours} className="border p-4 rounded space-y-2 bg-white shadow">
+          <label className="block text-sm font-medium text-stone-700">
+            Télécharger une affiche <span className="font-normal text-stone-500">(remplit le formulaire automatiquement)</span>
+          </label>
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={handleAfficheUpload}
+            disabled={lectureAffiche}
+            className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+          />
+          {lectureAffiche && <p className="text-sm text-sky-700">Lecture de l'affiche…</p>}
           <Input placeholder="Nom du concours" maxLength={120} value={formData.title} onChange={(e) => updateForm("title", e.target.value)} />
           <Input type="date" min={todayKey()} value={formData.date} onChange={(e) => updateForm("date", e.target.value)} />
           <Input placeholder="Lieu (boulodrome, adresse…)" maxLength={200} value={formData.lieu} onChange={(e) => updateForm("lieu", e.target.value)} />
@@ -274,6 +325,21 @@ function ConcoursApp() {
           ) : (
             <Input placeholder="Ville" maxLength={100} value={formData.ville} onChange={(e) => updateForm("ville", e.target.value)} />
           )}
+          <select className="w-full border rounded px-2 py-2" value={formData.format} onChange={(e) => updateForm("format", e.target.value)}>
+            <option value="">-- Format du concours (ex : doublette) --</option>
+            {FORMATS.map((f) => (
+              <option key={f} value={f}>{FORMAT_LABELS[f]}</option>
+            ))}
+          </select>
+          <Input
+            type="number"
+            min="0"
+            step="0.5"
+            inputMode="decimal"
+            placeholder="Tarif par équipe (€)"
+            value={formData.prix}
+            onChange={(e) => updateForm("prix", e.target.value)}
+          />
           <select className="w-full border rounded px-2 py-2" value={formData.type} onChange={(e) => updateForm("type", e.target.value)}>
             <option value="officiel">Officiel</option>
             <option value="ouvert">Ouvert à tous</option>
@@ -294,19 +360,23 @@ function ConcoursApp() {
           value={filtre}
           onChange={(e) => setFiltre(e.target.value)}
           aria-label="Type de concours"
-          className="border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+          className="flex-1 border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
         >
           <option value="tous">Tous</option>
           <option value="officiel">Officiels</option>
           <option value="ouvert">Ouverts à tous</option>
         </select>
-        <Input
-          type="search"
-          placeholder="Ville, CP ou département"
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
+        <MultiSelectDepartement
+          departementFiltre={departementFiltre}
+          setDepartementFiltre={setDepartementFiltre}
         />
       </div>
+      <Input
+        type="search"
+        placeholder="Rechercher : ville, code postal, nom…"
+        value={recherche}
+        onChange={(e) => setRecherche(e.target.value)}
+      />
 
       <CalendarWithConcours
         selectedDate={selectedDate}
@@ -378,7 +448,12 @@ function ConcoursApp() {
           <h2 className="text-xl font-bold text-sky-700">{selectedConcours.title}</h2>
           <p className="capitalize">📅 {formatLong(selectedConcours.date)}</p>
           <p>📍 {selectedConcours.lieu}, {selectedConcours.cp} {selectedConcours.ville}</p>
-          <p>🏷️ {TYPE_LABELS[selectedConcours.type] || selectedConcours.type}</p>
+          <p>🏷️ {TYPE_LABELS[selectedConcours.type] || selectedConcours.type}
+            {selectedConcours.format && ` · ${FORMAT_LABELS[selectedConcours.format] || selectedConcours.format}`}
+          </p>
+          {selectedConcours.prix !== undefined && selectedConcours.prix !== "" && (
+            <p>💶 {selectedConcours.prix} € par équipe</p>
+          )}
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => downloadIcs(selectedConcours)}>
               🔔 Ajouter à mon agenda
@@ -426,7 +501,11 @@ function AdminPanel({ propositions, handleValider, handleSupprimer }) {
             <h3 className="font-semibold">{c.title}</h3>
             <p className="text-sm text-gray-600 capitalize">{formatLong(c.date)} - {c.lieu}</p>
             <p className="text-sm">{c.cp} {c.ville}</p>
-            <p className="text-sm text-gray-600">{TYPE_LABELS[c.type] || c.type}</p>
+            <p className="text-sm text-gray-600">
+              {TYPE_LABELS[c.type] || c.type}
+              {c.format && ` · ${FORMAT_LABELS[c.format] || c.format}`}
+              {c.prix !== undefined && c.prix !== "" && ` · ${c.prix} €`}
+            </p>
             <div className="flex gap-2 mt-2">
               <Button onClick={() => handleValider(c.id)}>Valider</Button>
               <Button variant="destructive" onClick={() => handleSupprimer(c.id)}>Supprimer</Button>
