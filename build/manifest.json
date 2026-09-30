@@ -1,0 +1,17 @@
+{
+  "name": "Concours P\u00e9tanque",
+  "short_name": "P\u00e9tanque",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fef3c7",
+  "theme_color": "#facc15",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

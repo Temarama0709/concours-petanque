@@ -10,6 +10,14 @@ import { Bell } from "lucide-react";
 import MapConcours from "./MapConcours.js";
 import { parse } from "date-fns";
 import { fr } from "date-fns/locale";
+import { db, auth } from "./utils/firebase.js";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+import ConnexionForm from "./utils/ConnexionForm";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getFirestore,
@@ -23,30 +31,6 @@ import {
   onSnapshot
 } from "firebase/firestore";
 
-
-const firebaseConfig = {
-  apiKey: "AIzaSyA4-G44Gl2Et0twI_xq7TxGJIZWEPXHrUo",
-  authDomain: "petanque-concours.firebaseapp.com",
-  projectId: "petanque-concours",
-  storageBucket: "petanque-concours.appspot.com",
-  messagingSenderId: "648075631175",
-  appId: "1:648075631175:web:812f2b919c8f6bf8a02f62",
-  measurementId: "G-KG2Q0YRXM1"
-};
-
-let app;
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-} catch (error) {
-  console.error("Firebase initialization error", error);
-}
-
-let db;
-try {
-  db = getFirestore(app);
-} catch (error) {
-  console.error("Firestore not available", error);
-}
 
 function ConcoursApp() {
   const [deleteMessage, setDeleteMessage] = useState("");
@@ -73,6 +57,7 @@ function ConcoursApp() {
   const [adminPassword, setAdminPassword] = useState("");
   const [showMap, setShowMap] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showLoginForm, setShowLoginForm] = useState(false);
   const handleAfficheUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -124,7 +109,11 @@ function ConcoursApp() {
     reader.readAsDataURL(file);
   };
   const [departementFiltre, setDepartementFiltre] = useState([]);
+  const [user, setUser] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
+  
 
   useEffect(() => {
     if (!db) return;
@@ -132,18 +121,44 @@ function ConcoursApp() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const concours = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setConcoursList(concours);
+      
     });
     return () => unsubscribe();
+    
   }, [db]);
 
+  useEffect(() => {
+    const stopListening = auth.onAuthStateChanged((firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => stopListening();
+  }, []);
+
+  const handleSignup = () => {
+    if (!email || !password) {
+      alert("Email et mot de passe requis.");
+      return;
+    }
+    if (!email.includes("@")) {
+      alert("Email invalide.");
+      return;
+    }
+    console.log("📧 Email saisi :", email);
+    createUserWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        alert("Inscription réussie !");
+      })
+      .catch((error) => {
+        alert("Erreur : " + error.message);
+      });
+  };
+  
   const concoursFiltres = concoursList.filter(c => {
     if (filtre !== "tous" && c.type !== filtre) return false;
     if (selectedDate && c.date !== format(selectedDate, "yyyy-MM-dd")) return false;
     if (departementFiltre.length > 0 && !departementFiltre.some(dep => c.cp.startsWith(dep))) return false;
     return true;
   });
-  
-  
 
   const handleReminder = (concours) => {
     alert(`Rappel activé pour : ${concours.title} le ${concours.date}`);
@@ -218,27 +233,36 @@ function ConcoursApp() {
   <Button variant="outline" onClick={() => setShowForm(!showForm)}>
     {showForm ? "Annuler" : "+ Proposer un concours"}
   </Button>
+  {!user && !showLoginForm && (
+  <Button onClick={() => setShowLoginForm(true)}>Connexion</Button>
+)}
   {showLive && <LiveStream onClose={() => setShowLive(false)} />}
 
-<Button onClick={() => setShowLive(true)} className="bg-blue-300 text-white">
-  🎥 Démarrer un live
-</Button>
-
-
-
-  {!adminMode ? (
-    <Button variant="outline" onClick={() => setShowLogin(true)}>
-      Connexion
-    </Button>
-  ) : (
-    <Button variant="ghost" onClick={() => setAdminMode(false)}>
-      Déconnexion
-    </Button>
-  )}
 </div>
+
+
+{!user && showLoginForm && (
+  <ConnexionForm
+    setUser={setUser}
+    setAdminMode={setAdminMode}
+    onCancel={() => setShowLoginForm(false)}
+  />
+)}
+
+
 {showForm && (
- 
-        <div className="border p-4 rounded space-y-2 bg-white shadow">
+
+
+
+  // debut du formulaire ajout concours
+        <div className="border p-4 rounded space-y-2 bg-white shadow"> 
+        <label className="block text-sm font-medium text-stone-700">Télécharger une affiche</label>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleAfficheUpload}
+              className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+            />
           <Input placeholder="Nom du concours" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
           <Input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
           <Input placeholder="Adresse" value={formData.lieu} onChange={(e) => setFormData({ ...formData, lieu: e.target.value })} />
@@ -279,7 +303,7 @@ function ConcoursApp() {
     onChange={(e) => setFormData({ ...formData, format: e.target.value })}
     className="border px-2 py-1 rounded w-full"
   >
-   
+    <option value="">--Format de concours - ex : doublette --</option>
     <option value="Tete a tete Senior">Tete a tete Senior</option>
     <option value="Doublette Senior">Doublette Senior</option>
     <option value="Triplette Senior">Triplette Senior</option>
@@ -318,38 +342,19 @@ function ConcoursApp() {
           )}
 
           <select className="w-full border rounded px-2 py-1" value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+          <option value="">-- selectionner un type - ex : Officie --</option>
             <option value="officiel">Officiel</option>
             <option value="ouvert">Ouvert à tous</option>
           </select>
           {formError && <p className="text-red-500 text-sm">{formError}</p>}
           <Button onClick={handleAddConcours}>Envoyer</Button>
-          <label className="block text-sm font-medium text-stone-700">Télécharger une affiche</label>
-  <input
-    type="file"
-    accept="image/*,.pdf"
-    onChange={handleAfficheUpload}
-    className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
-  />
-        
+          
         </div>
         
       )}
 
       {successMessage && <div className="text-green-600 text-sm text-center">{successMessage}</div>}
-{showLogin && (
-  <div className="bg-white border p-4 rounded shadow mb-4">
-    <Input
-      placeholder="Mot de passe admin"
-      type="password"
-      value={adminPassword}
-      onChange={(e) => setAdminPassword(e.target.value)}
-    />
-    <div className="mt-2 flex gap-2">
-      <Button onClick={handleAdminLogin}>Se connecter</Button>
-      <Button variant="ghost" onClick={() => setShowLogin(false)}>Annuler</Button>
-    </div>
-  </div>
-)}
+
 
     
 <div className="flex flex-wrap gap-4 mb-4"> 
@@ -371,8 +376,6 @@ function ConcoursApp() {
   departementFiltre={departementFiltre}
   setDepartementFiltre={setDepartementFiltre}
 />
-
-
 
 </div>
 
@@ -431,9 +434,9 @@ function ConcoursApp() {
               </div>
             ) : (
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedConcours(concours)}
+                 variant="ghost"
+                 size="sm"
+                 onClick={() => setSelectedConcours(concours)}
               >
                 Voir
               </Button>
@@ -465,6 +468,13 @@ function ConcoursApp() {
     handleSupprimer={handleSupprimer}
   />
 )}
+{user && (
+  <div className="text-sm text-right text-gray-600">
+    Connecté : {user.email}
+    <Button variant="ghost" onClick={() => signOut(auth)}>Se déconnecter</Button>
+  </div>
+)}
+
     
     </div>
     

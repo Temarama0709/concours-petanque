@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Lire tous les concours publiés
+    match /concours/{id} {
+      allow read: if true; // tout le monde peut lire
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+  }
+}

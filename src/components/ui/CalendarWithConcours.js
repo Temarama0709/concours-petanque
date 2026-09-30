@@ -2,6 +2,7 @@
 import React from "react";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import "react-day-picker/dist/style.css";
 
 const getConcoursCountPerDay = (concoursList) => {
@@ -18,13 +19,13 @@ const getConcoursCountPerDay = (concoursList) => {
 export default function CalendarWithConcours({ selectedDate, setSelectedDate, concoursList = [] }) {
 
   const concoursParJour = concoursList.reduce((acc, c) => {
-    const key = format(new Date(c.date), "yyyy-MM-dd");
+    const key = format(new Date(c.date), "yyyy-MM-dd", { locale: fr });
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
 
   const renderDay = (date) => {
-    const key = format(date, "yyyy-MM-dd");
+    const key = format(date, "yyyy-MM-dd", { locale: fr });
     const count = concoursParJour[key] || 0;
 
     return (
@@ -43,6 +44,7 @@ export default function CalendarWithConcours({ selectedDate, setSelectedDate, co
   return (
     <div className="w-full max-w-md mx-auto mt-2 rounded border bg-white shadow p-4">
 <DayPicker
+  locale={fr}
   selected={selectedDate}
   onDayClick={setSelectedDate}
   modifiersClassNames={{
@@ -52,7 +54,7 @@ export default function CalendarWithConcours({ selectedDate, setSelectedDate, co
   showOutsideDays
   components={{
     DayContent: (date) => {
-      const dateStr = format(date.date, "yyyy-MM-dd");
+      const dateStr = format(date.date, "yyyy-MM-dd", { locale: fr });
       const count = concoursPerDay[dateStr] || 0;
   
       return (
