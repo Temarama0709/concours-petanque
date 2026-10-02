@@ -5,6 +5,8 @@ import CalendarWithConcours from "./components/ui/CalendarWithConcours.js";
 import { Input } from "./components/ui/input.js";
 import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
+import ImportCalendrier from "./components/ImportCalendrier.js";
+import { FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
 import ConnexionForm from "./utils/ConnexionForm.js";
 import { lireAffiche } from "./lib/ocrAffiche.js";
@@ -25,22 +27,6 @@ import {
 import { onAuthStateChanged, signOut } from "firebase/auth";
 
 const TYPE_LABELS = { officiel: "Officiel", ouvert: "Ouvert à tous" };
-const FORMATS = [
-  "Tete a tete Senior",
-  "Doublette Senior",
-  "Triplette Senior",
-  "Tete a tete Feminin",
-  "Doublette Feminin",
-  "Triplette Feminin"
-];
-const FORMAT_LABELS = {
-  "Tete a tete Senior": "Tête-à-tête Senior",
-  "Doublette Senior": "Doublette Senior",
-  "Triplette Senior": "Triplette Senior",
-  "Tete a tete Feminin": "Tête-à-tête Féminin",
-  "Doublette Feminin": "Doublette Féminin",
-  "Triplette Feminin": "Triplette Féminin"
-};
 const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "" };
 
 const byDate = (a, b) => (a.date || "").localeCompare(b.date || "");
@@ -211,14 +197,16 @@ function ConcoursApp() {
       await addDoc(collection(db, "concours"), {
         ...data,
         prix,
-        valide: false,
+        // Un concours ajouté par un admin est publié directement
+        valide: isAdmin,
+        ...(isAdmin ? { source: "admin" } : {}),
         createdAt: serverTimestamp()
       });
       setFormData(EMPTY_FORM);
       setVilleOptions([]);
       setShowForm(false);
       setFormError("");
-      showFlash("success", "Concours proposé avec succès ! En attente de validation.");
+      showFlash("success", isAdmin ? "Concours publié !" : "Concours proposé avec succès ! En attente de validation.");
     } catch (error) {
       console.error("Erreur lors de l'ajout du concours:", error);
       setFormError("L'envoi a échoué. Réessayez dans un instant.");
@@ -451,7 +439,7 @@ function ConcoursApp() {
           <p>🏷️ {TYPE_LABELS[selectedConcours.type] || selectedConcours.type}
             {selectedConcours.format && ` · ${FORMAT_LABELS[selectedConcours.format] || selectedConcours.format}`}
           </p>
-          {selectedConcours.prix !== undefined && selectedConcours.prix !== "" && (
+          {selectedConcours.prix != null && selectedConcours.prix !== "" && (
             <p>💶 {selectedConcours.prix} € par équipe</p>
           )}
           <div className="flex flex-wrap gap-2 pt-2">
@@ -481,6 +469,7 @@ function ConcoursApp() {
       {isAdmin && (
         <AdminPanel
           propositions={propositions}
+          concoursList={concoursList}
           handleValider={handleValider}
           handleSupprimer={handleSupprimer}
         />
@@ -489,9 +478,11 @@ function ConcoursApp() {
   );
 }
 
-function AdminPanel({ propositions, handleValider, handleSupprimer }) {
+function AdminPanel({ propositions, concoursList, handleValider, handleSupprimer }) {
   return (
     <div className="mt-8 space-y-4">
+      <ImportCalendrier concoursExistants={[...concoursList, ...propositions]} />
+
       <h2 className="text-lg font-bold text-sky-700">
         Propositions à valider {propositions.length > 0 && `(${propositions.length})`}
       </h2>
@@ -504,7 +495,7 @@ function AdminPanel({ propositions, handleValider, handleSupprimer }) {
             <p className="text-sm text-gray-600">
               {TYPE_LABELS[c.type] || c.type}
               {c.format && ` · ${FORMAT_LABELS[c.format] || c.format}`}
-              {c.prix !== undefined && c.prix !== "" && ` · ${c.prix} €`}
+              {c.prix != null && c.prix !== "" && ` · ${c.prix} €`}
             </p>
             <div className="flex gap-2 mt-2">
               <Button onClick={() => handleValider(c.id)}>Valider</Button>

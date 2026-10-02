@@ -37,3 +37,12 @@ Seuls les comptes dont l'UID figure dans `firestore.rules` (et dans `src/admins.
 ou qui ont reçu le droit `admin` via la fonction `setAdmin` (`functions/index.js`),
 peuvent valider ou supprimer des concours. Pour ajouter un admin, ajoutez son UID
 aux deux endroits puis relancez `npm run deploy`.
+
+## Importer un calendrier officiel (admin)
+
+Connecté en admin, le panneau du bas propose **Importer un calendrier officiel** :
+fichier Excel (.xlsx), CSV ou tableau copié-collé. La première ligne doit contenir
+les titres des colonnes, dont au moins **Date** et **Ville** (ou Commune). Colonnes
+reconnues en plus : Nom, Club, Lieu, CP, Catégorie/Format, Tarif/Mise, Heure.
+Voir `exemple-calendrier.xlsx`. Un aperçu est affiché avant l'import ; les concours
+déjà présents sont ignorés et les concours importés sont publiés directement.

@@ -10,26 +10,56 @@ service cloud.firestore {
             || request.auth.token.admin == true);
     }
 
-    function isValidProposal(d) {
-      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'createdAt'])
+    // Formats : doit rester identique à src/lib/formats.js
+    function isValidConcours(d) {
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'source', 'createdAt'])
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
         && d.lieu is string && d.lieu.size() > 0 && d.lieu.size() <= 200
         && d.ville is string && d.ville.size() > 0 && d.ville.size() <= 100
         && d.cp is string && d.cp.matches('^[0-9]{5}$')
         && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.type in ['officiel', 'ouvert']
-        && d.format in ['Tete a tete Senior', 'Doublette Senior', 'Triplette Senior',
-                        'Tete a tete Feminin', 'Doublette Feminin', 'Triplette Feminin']
-        && d.prix is number && d.prix >= 0 && d.prix <= 10000
-        && d.valide == false
+        && d.format in ['Tete a tete Senior',
+                        'Doublette Senior',
+                        'Triplette Senior',
+                        'Tete a tete Feminin',
+                        'Doublette Feminin',
+                        'Triplette Feminin',
+                        'Doublette Mixte',
+                        'Triplette Mixte',
+                        'Tete a tete Veteran',
+                        'Doublette Veteran',
+                        'Triplette Veteran',
+                        'Tete a tete Jeunes',
+                        'Doublette Jeunes',
+                        'Triplette Jeunes',
+                        'Autre']
         && d.createdAt == request.time;
+    }
+
+    // Proposition du public : tarif obligatoire, toujours en attente de validation
+    function isValidProposal(d) {
+      return isValidConcours(d)
+        && !('source' in d)
+        && d.prix is number && d.prix >= 0 && d.prix <= 10000
+        && d.valide == false;
+    }
+
+    // Ajout par un admin (formulaire ou import de calendrier) : tarif facultatif
+    function isValidAdminConcours(d) {
+      return isValidConcours(d)
+        && d.get('source', 'admin') in ['admin', 'import']
+        && (d.prix == null || (d.prix is number && d.prix >= 0 && d.prix <= 10000))
+        && d.valide is bool;
     }
 
     match /concours/{id} {
       // Tout le monde voit les concours validés ; les admins voient aussi les propositions.
       allow read: if resource.data.valide == true || isAdmin();
       // Tout le monde peut proposer un concours, qui arrive non validé.
-      allow create: if isValidProposal(request.resource.data);
+      // Les admins peuvent aussi publier directement (formulaire ou import).
+      allow create: if isValidProposal(request.resource.data)
+        || (isAdmin() && isValidAdminConcours(request.resource.data));
       // Seuls les admins valident, modifient ou suppriment.
       allow update, delete: if isAdmin();
     }
