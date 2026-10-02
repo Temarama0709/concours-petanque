@@ -3,6 +3,9 @@ import { analyserTableau, lireTexte, lireDate, lireFormat } from "../importCalen
 test("dates dans différents formats", () => {
   expect(lireDate("12/07/2026")).toBe("2026-07-12");
   expect(lireDate("samedi 1er août 2026")).toBe("2026-08-01");
+  expect(lireDate("18 juillet 2026")).toBe("2026-07-18");
+  expect(lireDate("6 juin 2026")).toBe("2026-06-06");
+  expect(lireDate("3 mai 2026")).toBe("2026-05-03");
   expect(lireDate("2026-07-12")).toBe("2026-07-12");
   expect(lireDate(46215)).toBe("2026-07-12");
   expect(lireDate(new Date(Date.UTC(2026, 6, 12)))).toBe("2026-07-12");

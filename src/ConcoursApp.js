@@ -9,7 +9,7 @@ import ImportCalendrier from "./components/ImportCalendrier.js";
 import { FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
 import ConnexionForm from "./utils/ConnexionForm.js";
-import { lireAffiche } from "./lib/ocrAffiche.js";
+import { extraireInfos, lireAffiche } from "./lib/ocrAffiche.js";
 import { ADMIN_UIDS } from "./admins.js";
 import { downloadIcs, formatLong, formatShort, toKey, todayKey } from "./lib/dates.js";
 
@@ -146,23 +146,26 @@ function ConcoursApp() {
     }
   };
 
-  const handleAfficheUpload = async (e) => {
-    const file = e.target.files[0];
-    e.target.value = "";
-    if (!file) return;
+  // Remplit les champs vides ou reconnus à partir des infos d'une affiche
+  const appliquerInfos = (infos) => {
+    setFormData((f) => ({
+      ...f,
+      title: infos.title || f.title,
+      date: infos.date || f.date,
+      ville: infos.ville || f.ville,
+      cp: infos.cp || f.cp,
+      format: infos.format || f.format,
+      prix: infos.prix || f.prix,
+      type: infos.type || f.type
+    }));
+    if (infos.cp) chercherVilles(infos.cp);
+  };
+
+  const traiterAffiche = async (file) => {
     setLectureAffiche(true);
     setFormError("");
     try {
-      const infos = await lireAffiche(file);
-      setFormData((f) => ({
-        ...f,
-        title: infos.title || f.title,
-        date: infos.date || f.date,
-        ville: infos.ville || f.ville,
-        cp: infos.cp || f.cp,
-        format: infos.format || f.format
-      }));
-      if (infos.cp) chercherVilles(infos.cp);
+      appliquerInfos(await lireAffiche(file));
       showFlash("success", "✅ Champs remplis depuis l'affiche : vérifiez-les avant d'envoyer.");
     } catch (error) {
       console.error("Lecture de l'affiche:", error);
@@ -171,6 +174,41 @@ function ConcoursApp() {
       setLectureAffiche(false);
     }
   };
+
+  const handleAfficheUpload = (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (file) traiterAffiche(file);
+  };
+
+  // Affiche partagée depuis une autre application (Android) : le service
+  // worker l'a déposée dans le cache "partage" puis a ouvert /?partage=1
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("partage")) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    (async () => {
+      try {
+        const cache = await caches.open("partage");
+        const [repAffiche, repTexte] = await Promise.all([cache.match("/partage/affiche"), cache.match("/partage/texte")]);
+        await Promise.all([cache.delete("/partage/affiche"), cache.delete("/partage/texte")]);
+        setShowForm(true);
+        const texte = repTexte ? await repTexte.text() : "";
+        if (texte) appliquerInfos(extraireInfos(texte));
+        if (repAffiche) {
+          const blob = await repAffiche.blob();
+          await traiterAffiche(new File([blob], "affiche", { type: blob.type }));
+        } else {
+          setFormError(
+            "Seul un lien a été partagé, pas l'image. Dans Facebook, ouvrez l'affiche, enregistrez-la, " +
+              "puis partagez-la depuis votre galerie photo."
+          );
+        }
+      } catch (error) {
+        console.error("Partage:", error);
+      }
+    })();
+    // À faire une seule fois, au chargement de la page
+  }, []);
 
   const handleAddConcours = async (e) => {
     e.preventDefault();

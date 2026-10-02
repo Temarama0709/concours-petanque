@@ -1,5 +1,4 @@
-import { format, isValid, parse } from "date-fns";
-import { fr } from "date-fns/locale";
+import { lireDate } from "./importCalendrier.js";
 
 // Lit le texte d'une affiche (image ou PDF) avec OCR.space et en extrait
 // les informations utiles pour pré-remplir le formulaire.
@@ -18,31 +17,67 @@ export async function lireAffiche(file) {
     body: new URLSearchParams({
       base64Image: base64,
       language: "fre",
+      scale: "true",
       ...(file.type === "application/pdf" ? { filetype: "PDF" } : {})
     })
   });
   const data = await res.json();
   const text = data?.ParsedResults?.map((r) => r.ParsedText).join("\n") || "";
   if (!text.trim()) throw new Error("Aucun texte trouvé sur l'affiche.");
+  return extraireInfos(text);
+}
 
-  const title = /concours.*pétanque/i.test(text) ? "Concours Pétanque" : "";
+const MOIS = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
 
-  let date = "";
-  const dateStr = text.match(/(\d{1,2}(?:er)?\s+[a-zéû]+\s+20\d\d)/i)?.[1]?.replace(/(\d)er/, "$1");
-  if (dateStr) {
-    const parsed = parse(dateStr.toLowerCase(), "d MMMM yyyy", new Date(), { locale: fr });
-    // format() garde la date locale (toISOString décalerait d'un jour en France)
-    if (isValid(parsed)) date = format(parsed, "yyyy-MM-dd");
+// Extrait date, lieu, format, tarif… d'un texte libre : texte lu sur une
+// affiche, ou texte d'une publication partagée depuis Facebook.
+export function extraireInfos(text, aujourdhui = new Date()) {
+  const plat = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  let date = lireDate(text);
+  if (!date) {
+    // "samedi 12 juillet" sans année : prochaine occurrence de cette date
+    const m = plat.match(/\b(\d{1,2})(?:er)?\s+(janv|fevr|mars|avri|mai|juin|juil|aout|sept|octo|nove|dece)[a-z]*/);
+    if (m) {
+      const mois = MOIS.findIndex((x) => x.startsWith(m[2]));
+      let annee = aujourdhui.getFullYear();
+      const candidate = new Date(annee, mois, Number(m[1]));
+      if (candidate < new Date(aujourdhui.getFullYear(), aujourdhui.getMonth(), aujourdhui.getDate())) annee++;
+      date = `${annee}-${String(mois + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+    }
   }
 
-  const ville = text.match(/(?:à|au)\s+([A-ZÉÈÂ][^\n]+)/)?.[1]?.trim() || "";
-  const cp = text.match(/\b(0[1-9]|[1-8][0-9]|9[0-5])[0-9]{3}\b/)?.[0] || "";
+  // "74300 Cluses" est plus fiable que "à Cluses"
+  let cp = "";
+  let ville = "";
+  const cpVille = text.match(/\b((?:0[1-9]|[1-8]\d|9[0-5])\d{3})\s+([A-ZÉÈÂÎ][A-Za-zÀ-ÿ' -]{1,40})/);
+  if (cpVille) {
+    cp = cpVille[1];
+    ville = cpVille[2].trim();
+  } else {
+    cp = text.match(/\b(0[1-9]|[1-8]\d|9[0-5])\d{3}\b/)?.[0] || "";
+    ville = text.match(/(?:^|\s)(?:à|au)\s+([A-ZÉÈÂÎ][A-Za-zÀ-ÿ' -]{1,40})/)?.[1]?.trim() || "";
+  }
 
-  let formatConcours = "";
-  const categorie = /f[ée]minin/i.test(text) ? "Feminin" : "Senior";
-  if (/t[êe]te.{0,3}[àa].{0,3}t[êe]te/i.test(text)) formatConcours = `Tete a tete ${categorie}`;
-  else if (/doublette/i.test(text)) formatConcours = `Doublette ${categorie}`;
-  else if (/triplette/i.test(text)) formatConcours = `Triplette ${categorie}`;
+  let equipe = "";
+  if (/tete.{0,3}a.{0,3}tete/.test(plat)) equipe = "Tete a tete";
+  else if (/doublette/.test(plat)) equipe = "Doublette";
+  else if (/triplette/.test(plat)) equipe = "Triplette";
+  let categorie = "Senior";
+  if (/feminin|dames/.test(plat)) categorie = "Feminin";
+  else if (/mixte/.test(plat)) categorie = "Mixte";
+  else if (/veteran/.test(plat)) categorie = "Veteran";
+  else if (/jeunes|junior|cadet|minime/.test(plat)) categorie = "Jeunes";
+  if (categorie === "Mixte" && equipe === "Tete a tete") categorie = "Senior";
+  const formatConcours = equipe ? `${equipe} ${categorie}` : "";
 
-  return { title, date, ville, cp, format: formatConcours };
+  const prix = plat.match(/(\d+(?:[.,]\d+)?)\s*(?:€|euros?\b)/)?.[1]?.replace(",", ".") || "";
+
+  let type = "";
+  if (/ouvert a tous|non licencie|sans licence|amical|tout public/.test(plat)) type = "ouvert";
+  else if (/officiel|licencies|ffpjp|qualificatif|championnat/.test(plat)) type = "officiel";
+
+  const title = /concours/.test(plat) && /petanque/.test(plat) ? "Concours de pétanque" : "";
+
+  return { title, date, ville, cp, format: formatConcours, prix, type };
 }

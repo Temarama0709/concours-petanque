@@ -101,7 +101,8 @@ export function lireDate(valeur) {
   m = s.match(/(\d{1,2}) ([a-z]+) (\d{4})/);
   if (m) {
     const mois = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
-    const n = mois.findIndex((x) => m[2].startsWith(x.slice(0, 3)));
+    // 4 lettres pour distinguer juin et juillet
+    const n = mois.findIndex((x) => m[2].startsWith(x.slice(0, 4)));
     if (n >= 0) return `${m[3]}-${String(n + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   }
   const d = parse(String(valeur), "d MMMM yyyy", new Date(), { locale: fr });

@@ -46,3 +46,11 @@ les titres des colonnes, dont au moins **Date** et **Ville** (ou Commune). Colon
 reconnues en plus : Nom, Club, Lieu, CP, Catégorie/Format, Tarif/Mise, Heure.
 Voir `exemple-calendrier.xlsx`. Un aperçu est affiché avant l'import ; les concours
 déjà présents sont ignorés et les concours importés sont publiés directement.
+
+## Partager une affiche depuis le téléphone (Android)
+
+Une fois l'application installée sur l'écran d'accueil (Chrome → menu ⋮ →
+« Installer l'application »), elle apparaît dans le menu « Partager » d'Android.
+Partager une image (affiche enregistrée depuis Facebook, photo…) ouvre le
+formulaire et le pré-remplit par OCR. Fonctionnement : `share_target` dans
+`public/manifest.json` + service worker `public/sw.js`. Non disponible sur iPhone.
