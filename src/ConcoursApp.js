@@ -6,6 +6,7 @@ import { Input } from "./components/ui/input.js";
 import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
 import ImportCalendrier from "./components/ImportCalendrier.js";
+import CommuneFields from "./components/CommuneFields.js";
 import { FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
 import ConnexionForm from "./utils/ConnexionForm.js";
@@ -44,7 +45,6 @@ function ConcoursApp() {
   const [selectedConcours, setSelectedConcours] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
-  const [villeOptions, setVilleOptions] = useState([]);
   const [formError, setFormError] = useState("");
   const [sending, setSending] = useState(false);
   const [lectureAffiche, setLectureAffiche] = useState(false);
@@ -132,20 +132,6 @@ function ConcoursApp() {
 
   const updateForm = (champ, valeur) => setFormData((f) => ({ ...f, [champ]: valeur }));
 
-  const chercherVilles = async (cp) => {
-    if (!/^\d{5}$/.test(cp)) return;
-    try {
-      const res = await fetch(`https://apicarto.ign.fr/api/codes-postaux/communes/${cp}`);
-      if (!res.ok) throw new Error(res.statusText);
-      const data = await res.json();
-      const villes = [...new Set(data.map((v) => v.nomCommune))];
-      setVilleOptions(villes);
-      if (villes.length) setFormData((f) => ({ ...f, ville: villes[0] }));
-    } catch {
-      setVilleOptions([]); // on laisse la saisie manuelle de la ville
-    }
-  };
-
   // Remplit les champs vides ou reconnus à partir des infos d'une affiche
   const appliquerInfos = (infos) => {
     setFormData((f) => ({
@@ -158,7 +144,6 @@ function ConcoursApp() {
       prix: infos.prix || f.prix,
       type: infos.type || f.type
     }));
-    if (infos.cp) chercherVilles(infos.cp);
   };
 
   const traiterAffiche = async (file) => {
@@ -241,7 +226,6 @@ function ConcoursApp() {
         createdAt: serverTimestamp()
       });
       setFormData(EMPTY_FORM);
-      setVilleOptions([]);
       setShowForm(false);
       setFormError("");
       showFlash("success", isAdmin ? "Concours publié !" : "Concours proposé avec succès ! En attente de validation.");
@@ -330,27 +314,11 @@ function ConcoursApp() {
           <Input placeholder="Nom du concours" maxLength={120} value={formData.title} onChange={(e) => updateForm("title", e.target.value)} />
           <Input type="date" min={todayKey()} value={formData.date} onChange={(e) => updateForm("date", e.target.value)} />
           <Input placeholder="Lieu (boulodrome, adresse…)" maxLength={200} value={formData.lieu} onChange={(e) => updateForm("lieu", e.target.value)} />
-          <Input
-            placeholder="Code postal"
-            inputMode="numeric"
-            maxLength={5}
-            value={formData.cp}
-            onChange={(e) => {
-              const cp = e.target.value.replace(/\D/g, "");
-              updateForm("cp", cp);
-              if (cp.length === 5) chercherVilles(cp);
-              else setVilleOptions([]);
-            }}
+          <CommuneFields
+            cp={formData.cp}
+            ville={formData.ville}
+            onChange={({ cp, ville }) => setFormData((f) => ({ ...f, cp, ville }))}
           />
-          {villeOptions.length > 0 ? (
-            <select className="w-full border rounded px-2 py-2" value={formData.ville} onChange={(e) => updateForm("ville", e.target.value)}>
-              {villeOptions.map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
-          ) : (
-            <Input placeholder="Ville" maxLength={100} value={formData.ville} onChange={(e) => updateForm("ville", e.target.value)} />
-          )}
           <select className="w-full border rounded px-2 py-2" value={formData.format} onChange={(e) => updateForm("format", e.target.value)}>
             <option value="">-- Format du concours (ex : doublette) --</option>
             {FORMATS.map((f) => (
