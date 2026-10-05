@@ -7,6 +7,8 @@ import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
 import ImportCalendrier from "./components/ImportCalendrier.js";
 import CommuneFields from "./components/CommuneFields.js";
+import AfficheConcours from "./components/AfficheConcours.js";
+import { compresserAffiche } from "./lib/affiches.js";
 import { FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
 import ConnexionForm from "./utils/ConnexionForm.js";
@@ -16,10 +18,9 @@ import { downloadIcs, formatLong, formatShort, toKey, todayKey } from "./lib/dat
 
 import {
   collection,
-  addDoc,
   updateDoc,
   doc,
-  deleteDoc,
+  writeBatch,
   query,
   where,
   onSnapshot,
@@ -48,6 +49,8 @@ function ConcoursApp() {
   const [formError, setFormError] = useState("");
   const [sending, setSending] = useState(false);
   const [lectureAffiche, setLectureAffiche] = useState(false);
+  const [afficheFichier, setAfficheFichier] = useState(null);
+  const [afficheApercu, setAfficheApercu] = useState("");
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -146,7 +149,16 @@ function ConcoursApp() {
     }));
   };
 
+  const choisirAffiche = (file) => {
+    if (afficheApercu) URL.revokeObjectURL(afficheApercu);
+    // Seules les images sont conservées ; un PDF sert uniquement à remplir le formulaire
+    const estImage = file?.type.startsWith("image/");
+    setAfficheFichier(estImage ? file : null);
+    setAfficheApercu(estImage ? URL.createObjectURL(file) : "");
+  };
+
   const traiterAffiche = async (file) => {
+    choisirAffiche(file);
     setLectureAffiche(true);
     setFormError("");
     try {
@@ -217,15 +229,32 @@ function ConcoursApp() {
     }
     setSending(true);
     try {
-      await addDoc(collection(db, "concours"), {
+      let image = null;
+      if (afficheFichier) {
+        try {
+          image = await compresserAffiche(afficheFichier);
+        } catch (error) {
+          console.error("Compression de l'affiche:", error);
+          setFormError("Impossible d'enregistrer cette affiche. Retirez-la ou choisissez une autre image.");
+          return;
+        }
+      }
+      // Concours et affiche sont écrits ensemble (même identifiant)
+      const batch = writeBatch(db);
+      const ref = doc(collection(db, "concours"));
+      batch.set(ref, {
         ...data,
         prix,
         // Un concours ajouté par un admin est publié directement
         valide: isAdmin,
         ...(isAdmin ? { source: "admin" } : {}),
+        ...(image ? { affiche: true } : {}),
         createdAt: serverTimestamp()
       });
+      if (image) batch.set(doc(db, "affiches", ref.id), { image, createdAt: serverTimestamp() });
+      await batch.commit();
       setFormData(EMPTY_FORM);
+      choisirAffiche(null);
       setShowForm(false);
       setFormError("");
       showFlash("success", isAdmin ? "Concours publié !" : "Concours proposé avec succès ! En attente de validation.");
@@ -240,7 +269,10 @@ function ConcoursApp() {
   const handleSupprimer = async (id) => {
     if (!window.confirm("❌ Supprimer ce concours ?")) return;
     try {
-      await deleteDoc(doc(db, "concours", id));
+      const batch = writeBatch(db);
+      batch.delete(doc(db, "concours", id));
+      batch.delete(doc(db, "affiches", id));
+      await batch.commit();
       if (selectedConcours?.id === id) setSelectedConcours(null);
       showFlash("success", "✅ Concours supprimé avec succès !");
     } catch (error) {
@@ -311,6 +343,15 @@ function ConcoursApp() {
             className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
           />
           {lectureAffiche && <p className="text-sm text-sky-700">Lecture de l'affiche…</p>}
+          {afficheApercu && (
+            <div className="flex items-start gap-3">
+              <img src={afficheApercu} alt="Affiche choisie" className="h-28 rounded border" />
+              <div className="text-sm text-stone-600 space-y-1">
+                <p>L'affiche sera enregistrée avec le concours.</p>
+                <Button variant="ghost" size="sm" onClick={() => choisirAffiche(null)}>Retirer l'affiche</Button>
+              </div>
+            </div>
+          )}
           <Input placeholder="Nom du concours" maxLength={120} value={formData.title} onChange={(e) => updateForm("title", e.target.value)} />
           <Input type="date" min={todayKey()} value={formData.date} onChange={(e) => updateForm("date", e.target.value)} />
           <Input placeholder="Lieu (boulodrome, adresse…)" maxLength={200} value={formData.lieu} onChange={(e) => updateForm("lieu", e.target.value)} />
@@ -448,6 +489,7 @@ function ConcoursApp() {
           {selectedConcours.prix != null && selectedConcours.prix !== "" && (
             <p>💶 {selectedConcours.prix} € par équipe</p>
           )}
+          <AfficheConcours concours={selectedConcours} />
           <div className="flex flex-wrap gap-2 pt-2">
             <Button variant="outline" size="sm" onClick={() => downloadIcs(selectedConcours)}>
               🔔 Ajouter à mon agenda
@@ -503,6 +545,7 @@ function AdminPanel({ propositions, concoursList, handleValider, handleSupprimer
               {c.format && ` · ${FORMAT_LABELS[c.format] || c.format}`}
               {c.prix != null && c.prix !== "" && ` · ${c.prix} €`}
             </p>
+            <AfficheConcours concours={c} />
             <div className="flex gap-2 mt-2">
               <Button onClick={() => handleValider(c.id)}>Valider</Button>
               <Button variant="destructive" onClick={() => handleSupprimer(c.id)}>Supprimer</Button>
