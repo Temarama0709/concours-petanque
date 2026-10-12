@@ -97,9 +97,9 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
   const nbDoublons = (analyse?.concours || []).filter((c) => c.doublon).length;
 
   return (
-    <div className="border rounded bg-white shadow p-4 space-y-3">
-      <h2 className="text-lg font-bold text-sky-700">Importer un calendrier officiel</h2>
-      <p className="text-sm text-stone-600">
+    <div className="border-2 border-bord rounded-xl bg-white p-4 space-y-3">
+      <h2 className="text-[15px] font-black uppercase tracking-wider">Importer un calendrier officiel</h2>
+      <p className="text-sm text-ardoise">
         Fichier Excel (.xlsx) ou CSV, ou tableau copié-collé (depuis Excel, un site web…).
         La première ligne doit contenir les titres des colonnes, dont au moins <b>Date</b> et <b>Ville</b>
         (ou Commune). Colonnes reconnues en plus : Nom, Club, Lieu, CP, Catégorie/Format, Tarif, Heure.
@@ -107,7 +107,7 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
 
       <label className="flex items-center gap-2 text-sm">
         Département :
-        <select value={departement} onChange={(e) => setDepartement(e.target.value)} className="border rounded px-2 py-1">
+        <select value={departement} onChange={(e) => setDepartement(e.target.value)} className="h-10 px-2 bg-fond rounded-[10px] border-2 border-transparent focus:outline-none focus:border-jaune">
           {DEPARTEMENTS.map((d) => (
             <option key={d.code} value={d.code}>{d.code ? `${d.code} - ${d.nom}` : d.nom}</option>
           ))}
@@ -119,7 +119,7 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
         accept=".xlsx,.xls,.csv,.txt"
         onChange={handleFichier}
         disabled={!!etat}
-        className="block w-full text-sm text-stone-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+        className="block w-full text-sm text-ardoise file:mr-3 file:h-10 file:px-4 file:rounded-[10px] file:border-0 file:text-sm file:font-bold file:bg-jaune-clair file:text-navy hover:file:bg-jaune"
       />
 
       <textarea
@@ -127,13 +127,13 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
         onChange={(e) => setTexte(e.target.value)}
         rows={4}
         placeholder={"…ou collez le tableau ici, par exemple :\nDate\tVille\tCatégorie\tClub\n12/07/2026\tAnnecy\tDoublette\tPétanque Annécienne"}
-        className="w-full border rounded px-2 py-1 text-sm font-mono"
+        className="w-full bg-fond rounded-[10px] border-2 border-transparent focus:outline-none focus:border-jaune px-3 py-2 text-sm font-mono"
       />
       <Button variant="outline" disabled={!texte.trim() || !!etat} onClick={() => analyser(lireTexte(texte))}>
         Analyser le texte collé
       </Button>
 
-      {etat === "analyse" && <p className="text-sm text-sky-700">Analyse en cours…</p>}
+      {etat === "analyse" && <p className="text-sm font-semibold">Analyse en cours…</p>}
 
       {analyse && (
         <div className="space-y-2">
@@ -156,9 +156,9 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
               </ul>
             </details>
           )}
-          <div className="max-h-72 overflow-auto border rounded">
+          <div className="max-h-72 overflow-auto border-2 border-bord rounded-[10px]">
             <table className="w-full text-xs">
-              <thead className="bg-sky-100 sticky top-0">
+              <thead className="bg-navy text-white sticky top-0">
                 <tr>
                   <th className="text-left px-1">Date</th>
                   <th className="text-left px-1">Ville</th>
@@ -171,12 +171,12 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
                   <tr
                     key={i}
                     title={c.title}
-                    className={`border-t ${c.doublon || (!inclurePasses && c.date < todayKey()) ? "text-stone-400 line-through" : ""}`}
+                    className={`border-t ${c.doublon || (!inclurePasses && c.date < todayKey()) ? "text-ardoise line-through" : ""}`}
                   >
                     <td className="px-1 capitalize">{formatShort(c.date)}</td>
                     <td className="px-1">
                       {c.cp} {c.ville}
-                      {c.cpApproximatif && <span title="Code postal non trouvé" className="text-amber-600"> ⚠</span>}
+                      {c.cpApproximatif && <span title="Code postal non trouvé" className="text-jaune-texte font-bold"> ?</span>}
                     </td>
                     <td className="px-1">{FORMAT_LABELS[c.format] || c.format}</td>
                     <td className="px-1">{c.prix != null ? `${c.prix} €` : "–"}</td>

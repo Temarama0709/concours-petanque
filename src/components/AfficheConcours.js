@@ -24,13 +24,13 @@ export default function AfficheConcours({ concours }) {
   }, [concours.id, concours.affiche]);
 
   if (!concours.affiche || etat === "absente") return null;
-  if (etat === "chargement") return <p className="text-sm text-stone-500">Chargement de l'affiche…</p>;
+  if (etat === "chargement") return <p className="text-sm text-ardoise">Chargement de l'affiche…</p>;
   if (etat === "erreur") return <p className="text-sm text-red-600">Affiche indisponible.</p>;
 
   return (
     <>
       <button type="button" onClick={() => setPlein(true)} className="block" title="Voir l'affiche en grand">
-        <img src={image} alt={`Affiche : ${concours.title}`} className="max-h-64 rounded border shadow-sm" />
+        <img src={image} alt={`Affiche : ${concours.title}`} className="max-h-64 rounded-lg border-2 border-bord" />
       </button>
       {plein && (
         <div
@@ -40,7 +40,7 @@ export default function AfficheConcours({ concours }) {
           aria-label="Affiche en grand"
         >
           <img src={image} alt={`Affiche : ${concours.title}`} className="max-h-full max-w-full rounded shadow-lg" />
-          <button type="button" className="absolute top-4 right-4 bg-white rounded-full w-9 h-9 text-lg" aria-label="Fermer">
+          <button type="button" className="absolute top-4 right-4 bg-white text-navy font-bold rounded-full w-11 h-11 text-lg" aria-label="Fermer">
             ✕
           </button>
         </div>

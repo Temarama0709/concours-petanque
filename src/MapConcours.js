@@ -94,9 +94,9 @@ export default function MapConcours({ concoursList }) {
   const points = useMemo(() => locations.map((c) => [c.lat, c.lon]), [locations]);
 
   return (
-    <div className="w-full h-[400px] mt-4 rounded shadow overflow-hidden relative">
+    <div className="w-full h-[400px] rounded-xl border-2 border-bord overflow-hidden relative">
       {loading && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 text-xs px-2 py-1 rounded shadow">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[1000] bg-white text-navy font-semibold text-xs px-2 py-1 rounded shadow">
           Localisation des concours…
         </div>
       )}

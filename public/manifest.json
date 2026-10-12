@@ -6,13 +6,28 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#fef3c7",
-  "theme_color": "#facc15",
+  "background_color": "#FFFFFF",
+  "theme_color": "#12284A",
   "orientation": "portrait",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "share_target": {
     "action": "/partager",
@@ -22,7 +37,15 @@
       "title": "title",
       "text": "text",
       "url": "url",
-      "files": [{ "name": "affiche", "accept": ["image/*", "application/pdf"] }]
+      "files": [
+        {
+          "name": "affiche",
+          "accept": [
+            "image/*",
+            "application/pdf"
+          ]
+        }
+      ]
     }
   }
 }

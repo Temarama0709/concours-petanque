@@ -22,16 +22,17 @@ export default function MultiSelectDepartement({ departementFiltre, setDeparteme
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="border border-stone-300 rounded px-3 py-2 bg-amber-100 text-stone-700 shadow-sm whitespace-nowrap"
+        className={`h-11 px-4 rounded-[10px] text-sm font-bold whitespace-nowrap ${departementFiltre.length ? "bg-navy text-white" : "bg-fond text-navy hover:bg-bord"}`}
       >
-        📍 Départements{departementFiltre.length > 0 && ` (${departementFiltre.length})`}
+        Départements{departementFiltre.length > 0 && ` (${departementFiltre.length})`}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 w-52 rounded-md bg-white shadow-lg ring-1 ring-black/5 z-20 py-1">
+        <div className="absolute left-0 mt-2 w-56 rounded-xl bg-white shadow-lg border-2 border-bord z-20 py-1">
           {DEPARTEMENTS.map((dep) => (
-            <label key={dep.code} className="flex items-center gap-2 px-4 py-2 hover:bg-amber-100 cursor-pointer">
+            <label key={dep.code} className="flex items-center gap-2 px-4 py-2.5 hover:bg-fond cursor-pointer">
               <input
                 type="checkbox"
+                className="w-4 h-4 accent-navy"
                 checked={departementFiltre.includes(dep.code)}
                 onChange={() => toggleDepartement(dep.code)}
               />
@@ -39,7 +40,7 @@ export default function MultiSelectDepartement({ departementFiltre, setDeparteme
             </label>
           ))}
           {departementFiltre.length > 0 && (
-            <button type="button" onClick={() => setDepartementFiltre([])} className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+            <button type="button" onClick={() => setDepartementFiltre([])} className="w-full text-left px-4 py-2.5 text-sm font-bold text-navy hover:bg-fond">
               Tout effacer
             </button>
           )}

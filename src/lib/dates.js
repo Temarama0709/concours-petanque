@@ -60,3 +60,15 @@ export function downloadIcs(concours) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Pour le bloc date de la liste : { num: "17", mois: "OCT", jour: "Sam." }
+export function dateBloc(value) {
+  const d = parseDate(value);
+  if (!d) return { num: "?", mois: "", jour: "" };
+  const jour = format(d, "EEE", { locale: fr });
+  return {
+    num: format(d, "d"),
+    mois: format(d, "MMM", { locale: fr }).replace(".", "").toUpperCase(),
+    jour: jour.charAt(0).toUpperCase() + jour.slice(1)
+  };
+}

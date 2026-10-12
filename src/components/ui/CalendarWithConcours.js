@@ -17,19 +17,21 @@ export default function CalendarWithConcours({ selectedDate, setSelectedDate, co
   const DayContent = ({ date }) => {
     const count = concoursParJour[toKey(date)] || 0;
     return (
-      <div className="relative w-full h-full flex items-center justify-center text-sm font-medium">
-        <div>{date.getDate()}</div>
-        {count > 0 && (
-          <span className="absolute top-0 right-0 text-[10px] bg-yellow-400 text-black rounded-full w-4 h-4 flex items-center justify-center z-10 shadow border border-white">
-            {count}
-          </span>
-        )}
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 text-sm font-semibold">
+        <span>{date.getDate()}</span>
+        {/* Un point jaune par jour de concours ; le nombre s'il y en a plusieurs */}
+        <span
+          aria-label={count ? `${count} concours` : undefined}
+          className={`h-1.5 min-w-[6px] rounded-full text-[9px] leading-[6px] font-black text-navy ${count ? "bg-jaune" : "bg-transparent"} ${count > 1 ? "h-3 px-1 leading-3" : ""}`}
+        >
+          {count > 1 ? count : ""}
+        </span>
       </div>
     );
   };
 
   return (
-    <div className="w-full max-w-md mx-auto mt-2 rounded border bg-white shadow p-4">
+    <div className="w-full rounded-xl border-2 border-bord bg-white p-3">
       <DayPicker
         mode="single"
         locale={fr}

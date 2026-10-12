@@ -42,8 +42,8 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
   };
 
   return (
-    <form onSubmit={handleAuth} className="bg-white border rounded shadow p-4 space-y-2">
-      <h2 className="text-lg font-bold text-center text-sky-600">
+    <form onSubmit={handleAuth} className="bg-white border-2 border-bord rounded-xl p-4 space-y-3">
+      <h2 className="text-[15px] font-black uppercase tracking-wider">
         {isSignup ? "Créer un compte" : "Connexion"}
       </h2>
       <Input
@@ -60,7 +60,7 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
-      {message && <p className="text-sm text-center text-red-600">{message}</p>}
+      {message && <p className="text-sm font-semibold text-red-700">{message}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit">{isSignup ? "S'inscrire" : "Se connecter"}</Button>
         <Button variant="ghost" onClick={onCancel}>Annuler</Button>

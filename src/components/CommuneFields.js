@@ -93,10 +93,10 @@ export default function CommuneFields({ cp, ville, onChange }) {
           aria-autocomplete="list"
         />
         {recherche && ville.trim().length >= 2 && (
-          <span className="absolute right-3 top-2 text-xs text-stone-400">…</span>
+          <span className="absolute right-3 top-2 text-xs text-ardoise">…</span>
         )}
         {ouvert && suggestions.length > 0 && (
-          <ul role="listbox" className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-md bg-white shadow-lg ring-1 ring-black/5">
+          <ul role="listbox" className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto rounded-xl bg-white shadow-lg border-2 border-bord">
             {suggestions.map((c) => (
               <li key={`${c.nom}-${c.cp}`} role="option" aria-selected={memeNom(c.nom, ville) && c.cp === cp}>
                 <button
@@ -106,9 +106,9 @@ export default function CommuneFields({ cp, ville, onChange }) {
                     e.preventDefault();
                     choisir(c);
                   }}
-                  className="w-full text-left px-3 py-2 hover:bg-amber-100"
+                  className="w-full text-left px-3 py-2.5 hover:bg-fond"
                 >
-                  {c.nom} <span className="text-stone-500">— {c.cp}</span>
+                  {c.nom} <span className="text-ardoise">— {c.cp}</span>
                 </button>
               </li>
             ))}

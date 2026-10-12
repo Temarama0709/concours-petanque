@@ -2,7 +2,7 @@ export function Input({ type = "text", className = "", ...props }) {
   return (
     <input
       type={type}
-      className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+      className={`w-full h-11 px-3 bg-fond text-navy placeholder:text-ardoise border-2 border-transparent rounded-[10px] focus:outline-none focus:border-jaune ${className}`}
       {...props}
     />
   );
