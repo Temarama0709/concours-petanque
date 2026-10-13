@@ -8,8 +8,10 @@ import MapConcours from "./MapConcours.js";
 import ImportCalendrier from "./components/ImportCalendrier.js";
 import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
+import InscriptionForm from "./components/InscriptionForm.js";
+import InscriptionsAdmin from "./components/InscriptionsAdmin.js";
 import { compresserAffiche } from "./lib/affiches.js";
-import { FORMATS, FORMAT_LABELS } from "./lib/formats.js";
+import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
 import ConnexionForm from "./utils/ConnexionForm.js";
 import { extraireInfos, lireAffiche } from "./lib/ocrAffiche.js";
@@ -24,6 +26,7 @@ import {
   updateDoc,
   doc,
   writeBatch,
+  getDocs,
   query,
   where,
   onSnapshot,
@@ -49,7 +52,7 @@ function BadgeType({ type }) {
 }
 
 const aUnPrix = (c) => c.prix != null && c.prix !== "";
-const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "" };
+const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "", email: "" };
 
 const byDate = (a, b) => (a.date || "").localeCompare(b.date || "");
 
@@ -64,6 +67,7 @@ function ConcoursApp() {
   const [propositions, setPropositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedConcours, setSelectedConcours] = useState(null);
+  const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -229,9 +233,18 @@ function ConcoursApp() {
 
   const handleAddConcours = async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(Object.entries(formData).map(([k, v]) => [k, v.trim()]));
+    const { email, ...data } = Object.fromEntries(Object.entries(formData).map(([k, v]) => [k, v.trim()]));
     if (Object.values(data).some((v) => !v)) {
       setFormError("Tous les champs sont obligatoires.");
+      return;
+    }
+    // L'e-mail de l'organisateur reçoit les inscriptions ; facultatif pour un admin
+    if (!email && !isAdmin) {
+      setFormError("Indiquez votre e-mail pour recevoir les inscriptions.");
+      return;
+    }
+    if (email && !EMAIL_VALIDE.test(email)) {
+      setFormError("L'adresse e-mail n'est pas valide.");
       return;
     }
     if (!/^\d{5}$/.test(data.cp)) {
@@ -269,8 +282,11 @@ function ConcoursApp() {
         valide: isAdmin,
         ...(isAdmin ? { source: "admin" } : {}),
         ...(image ? { affiche: true } : {}),
+        ...(email ? { inscriptions: true } : {}),
         createdAt: serverTimestamp()
       });
+      // L'e-mail reste privé : document séparé, lisible seulement par les admins et le serveur
+      if (email) batch.set(doc(db, "contacts", ref.id), { email, createdAt: serverTimestamp() });
       if (image) batch.set(doc(db, "affiches", ref.id), { image, createdAt: serverTimestamp() });
       await batch.commit();
       setFormData(EMPTY_FORM);
@@ -292,6 +308,9 @@ function ConcoursApp() {
       const batch = writeBatch(db);
       batch.delete(doc(db, "concours", id));
       batch.delete(doc(db, "affiches", id));
+      batch.delete(doc(db, "contacts", id));
+      const inscrits = await getDocs(query(collection(db, "inscriptions"), where("concoursId", "==", id)));
+      inscrits.forEach((d) => batch.delete(d.ref));
       await batch.commit();
       if (selectedConcours?.id === id) setSelectedConcours(null);
       showFlash("success", "✅ Concours supprimé avec succès !");
@@ -312,6 +331,8 @@ function ConcoursApp() {
 
   const itineraire = (c) =>
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.lieu}, ${c.cp} ${c.ville}`)}`;
+
+  useEffect(() => setInscriptionOuverte(false), [selectedConcours?.id]);
 
   // Échap ferme la fiche du concours
   useEffect(() => {
@@ -432,6 +453,18 @@ function ConcoursApp() {
               value={formData.prix}
               onChange={(e) => updateForm("prix", e.target.value)}
             />
+            <div className="space-y-1">
+              <Input
+                type="email"
+                aria-label="E-mail de l'organisateur"
+                placeholder={isAdmin ? "E-mail de l'organisateur (facultatif)" : "Votre e-mail (pour recevoir les inscriptions)"}
+                autoComplete="email"
+                maxLength={200}
+                value={formData.email}
+                onChange={(e) => updateForm("email", e.target.value)}
+              />
+              <p className="text-xs text-ardoise">Jamais affiché sur le site. Vous recevrez un e-mail à chaque inscription.</p>
+            </div>
             <select aria-label="Type" className={CHAMP_SELECT} value={formData.type} onChange={(e) => updateForm("type", e.target.value)}>
               <option value="officiel">Officiel</option>
               <option value="ouvert">Ouvert à tous</option>
@@ -580,6 +613,13 @@ function ConcoursApp() {
               )}
             </ul>
             <AfficheConcours concours={selectedConcours} />
+            {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && (
+              inscriptionOuverte ? (
+                <InscriptionForm concours={selectedConcours} onTermine={() => setInscriptionOuverte(false)} />
+              ) : (
+                <Button className="w-full" onClick={() => setInscriptionOuverte(true)}>S'inscrire à ce concours</Button>
+              )
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="navy" onClick={() => downloadIcs(selectedConcours)}>
                 <IconBell size={18} /> Agenda
@@ -593,6 +633,7 @@ function ConcoursApp() {
                 <IconRoute size={18} /> Itinéraire
               </a>
             </div>
+            {isAdmin && selectedConcours.inscriptions && <InscriptionsAdmin concoursId={selectedConcours.id} />}
             {isAdmin && (
               <Button variant="destructive" className="w-full" onClick={() => handleSupprimer(selectedConcours.id)}>
                 Supprimer ce concours

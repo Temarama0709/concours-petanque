@@ -35,3 +35,12 @@ export const FORMAT_LABELS = {
   "Triplette Jeunes": "Triplette Jeunes",
   "Autre": "Autre"
 };
+
+// Nombre de joueurs par équipe selon le format (3 champs proposés si inconnu)
+export function joueursParEquipe(format = "") {
+  if (format.startsWith("Tete a tete")) return 1;
+  if (format.startsWith("Doublette")) return 2;
+  return 3;
+}
+
+export const EMAIL_VALIDE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;

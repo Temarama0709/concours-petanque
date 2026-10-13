@@ -54,3 +54,20 @@ Une fois l'application installée sur l'écran d'accueil (Chrome → menu ⋮ �
 Partager une image (affiche enregistrée depuis Facebook, photo…) ouvre le
 formulaire et le pré-remplit par OCR. Fonctionnement : `share_target` dans
 `public/manifest.json` + service worker `public/sw.js`. Non disponible sur iPhone.
+
+## Inscriptions et e-mails à l'organisateur
+
+Quand un concours est proposé avec l'e-mail de l'organisateur, un bouton « S'inscrire »
+apparaît dans sa fiche. Chaque inscription est enregistrée (collection `inscriptions`,
+lisible seulement par les admins) et la fonction `notifierInscription`
+(`functions/index.js`) envoie un e-mail à l'organisateur, plus une confirmation à
+l'équipe si elle a donné son e-mail. L'e-mail de l'organisateur est rangé à part
+(collection `contacts`) et n'est jamais lisible par le public.
+
+Pour activer l'envoi (une seule fois) :
+1. Passer le projet Firebase à l'offre Blaze (nécessaire pour les Cloud Functions).
+2. Créer un compte chez un service d'envoi d'e-mails (ex. Brevo, gratuit jusqu'à 300 e-mails/jour)
+   et récupérer ses identifiants SMTP.
+3. `npx firebase-tools functions:secrets:set SMTP_URL` puis coller
+   `smtps://IDENTIFIANT:CLE@smtp-relay.brevo.com:465`
+4. `npm run deploy:functions` (l'adresse d'expédition est demandée au premier déploiement).
