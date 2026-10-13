@@ -3,6 +3,7 @@ import { deleteDoc, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/fi
 import { db } from "../utils/firebase.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
+import AchatCredits from "./AchatCredits.js";
 
 // Affiché à la place du formulaire de publication quand la personne ne peut pas
 // (encore) publier : pas connectée, pas contributrice, ou plus de crédit.
@@ -40,10 +41,8 @@ export default function EspaceContributeur({ user, contributeur, onConnexion }) 
     return (
       <div className={cadre}>
         <h2 className="text-[15px] font-black uppercase tracking-wider">Plus de crédit</h2>
-        <p className="text-sm text-ardoise">
-          Chaque concours publié utilise 1 crédit, et votre compte n'en a plus.
-          Contactez l'administrateur pour en obtenir de nouveaux.
-        </p>
+        <p className="text-sm text-ardoise">Chaque concours publié utilise 1 crédit, et votre compte n'en a plus.</p>
+        <AchatCredits />
       </div>
     );
   }
@@ -55,8 +54,10 @@ export default function EspaceContributeur({ user, contributeur, onConnexion }) 
       <div className={cadre}>
         <h2 className="text-[15px] font-black uppercase tracking-wider">Demande envoyée</h2>
         <p className="text-sm text-ardoise">
-          Votre demande de compte contributeur est en attente. Vous pourrez publier dès qu'elle sera acceptée.
+          Votre demande de compte contributeur est en attente. Vous pourrez publier dès qu'elle sera acceptée,
+          ou tout de suite en achetant des crédits :
         </p>
+        <AchatCredits />
         <Button variant="ghost" size="sm" onClick={() => deleteDoc(doc(db, "demandes", user.uid))}>Annuler ma demande</Button>
       </div>
     );
@@ -88,11 +89,19 @@ export default function EspaceContributeur({ user, contributeur, onConnexion }) 
   const champ = (cle) => ({ value: form[cle], onChange: (e) => setForm((f) => ({ ...f, [cle]: e.target.value })) });
 
   return (
-    <form onSubmit={envoyer} className={cadre}>
-      <h2 className="text-[15px] font-black uppercase tracking-wider">Devenir contributeur</h2>
+    <div className="space-y-4">
+    <div className={cadre}>
+      <h2 className="text-[15px] font-black uppercase tracking-wider">Publier vos concours</h2>
       <p className="text-sm text-ardoise">
-        Les contributeurs publient leurs concours directement et reçoivent les inscriptions par e-mail.
+        Vos concours sont publiés immédiatement et vous recevez les inscriptions par e-mail.
         Chaque concours publié utilise 1 crédit.
+      </p>
+      <AchatCredits />
+    </div>
+    <form onSubmit={envoyer} className={cadre}>
+      <h2 className="text-[15px] font-black uppercase tracking-wider">Club partenaire ?</h2>
+      <p className="text-sm text-ardoise">
+        Vous pouvez aussi demander un compte contributeur à l'administrateur.
       </p>
       <Input aria-label="Nom" placeholder="Nom et prénom" autoComplete="name" maxLength={80} {...champ("nom")} />
       <Input aria-label="Club ou association" placeholder="Club ou association (facultatif)" maxLength={80} {...champ("club")} />
@@ -106,7 +115,8 @@ export default function EspaceContributeur({ user, contributeur, onConnexion }) 
         {...champ("message")}
       />
       {erreur && <p className="text-sm font-semibold text-red-700">{erreur}</p>}
-      <Button type="submit" disabled={envoi} className="w-full">{envoi ? "Envoi…" : "Envoyer ma demande"}</Button>
+      <Button type="submit" variant="navy" disabled={envoi} className="w-full">{envoi ? "Envoi…" : "Envoyer ma demande"}</Button>
     </form>
+    </div>
   );
 }

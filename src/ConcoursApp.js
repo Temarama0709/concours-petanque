@@ -12,6 +12,7 @@ import InscriptionForm from "./components/InscriptionForm.js";
 import InscriptionsAdmin from "./components/InscriptionsAdmin.js";
 import EspaceContributeur from "./components/EspaceContributeur.js";
 import GestionContributeurs from "./components/GestionContributeurs.js";
+import AchatCredits from "./components/AchatCredits.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
@@ -70,6 +71,7 @@ function ConcoursApp() {
   const [loading, setLoading] = useState(true);
   const [selectedConcours, setSelectedConcours] = useState(null);
   const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
+  const [achatOuvert, setAchatOuvert] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -107,6 +109,15 @@ function ConcoursApp() {
         setIsAdmin(false);
       }
     });
+  }, []);
+
+  // Retour de la page de paiement Stripe
+  useEffect(() => {
+    const paiement = new URLSearchParams(window.location.search).get("paiement");
+    if (!paiement) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (paiement === "ok") showFlash("success", "Paiement reçu, merci ! Vos crédits apparaissent dans quelques secondes.");
+    else showFlash("error", "Paiement annulé : aucun montant n'a été débité.");
   }, []);
 
   // Compte contributeur de la personne connectée (crédits, accès illimité)
@@ -457,6 +468,19 @@ function ConcoursApp() {
         {showForm && peutPublier && (
           <form onSubmit={handleAddConcours} className="bg-white border-2 border-bord rounded-xl p-4 space-y-3">
             <h2 className="text-[15px] font-black uppercase tracking-wider">Publier un concours</h2>
+            {!isAdmin && contributeur && !contributeur.illimite && (
+              <div className="rounded-[10px] bg-fond px-3 py-2 text-sm space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span>
+                    <b>{contributeur.credits}</b> crédit{contributeur.credits > 1 ? "s" : ""} restant{contributeur.credits > 1 ? "s" : ""} · cette publication en utilise 1
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => setAchatOuvert(!achatOuvert)}>
+                    {achatOuvert ? "Fermer" : "Acheter"}
+                  </Button>
+                </div>
+                {achatOuvert && <AchatCredits />}
+              </div>
+            )}
             <div className="space-y-1">
               <label htmlFor="affiche" className="block text-sm font-bold">
                 Affiche <span className="font-normal text-ardoise">(remplit le formulaire automatiquement)</span>

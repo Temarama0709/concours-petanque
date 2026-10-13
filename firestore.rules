@@ -189,5 +189,11 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin() || estAuteur(resource.data.concoursId);
     }
+
+    // Paiements Stripe : écrits uniquement par le serveur (webhookStripe)
+    match /paiements/{id} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
   }
 }

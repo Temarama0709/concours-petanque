@@ -85,3 +85,21 @@ contributeur ne peut ni se donner des crédits, ni publier sans en utiliser un.
 - Le contributeur voit ses crédits restants, la liste des inscrits à ses concours,
   et peut supprimer ses propres concours.
 - Collections : `contributeurs/{uid}` (crédits, illimite), `demandes/{uid}`.
+
+## Paiement des crédits (Stripe)
+
+Offres (prix fixés côté serveur dans `functions/index.js`, affichés via `src/lib/offres.js`) :
+**2 € le concours** ou **pack de 10 concours à 16 €**. Toute personne connectée peut
+acheter des crédits ; au premier achat, son compte devient contributeur automatiquement.
+
+Mise en place (une seule fois, projet en offre Blaze) :
+1. Créer un compte sur https://stripe.com et récupérer la **clé secrète** (`sk_test_…` pour
+   essayer, `sk_live_…` pour de vrais paiements).
+2. `npx firebase-tools functions:secrets:set STRIPE_SECRET_KEY`
+3. `npm run deploy:functions`, puis dans Stripe → Développeurs → Webhooks, ajouter l'adresse
+   de la fonction `webhookStripe` (affichée après le déploiement) avec l'événement
+   `checkout.session.completed`, et copier son **secret de signature** (`whsec_…`).
+4. `npx firebase-tools functions:secrets:set STRIPE_WEBHOOK_SECRET` puis `npm run deploy:functions`.
+
+Chaque paiement est enregistré dans la collection `paiements` ; un même paiement
+n'est jamais crédité deux fois.

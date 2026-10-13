@@ -105,3 +105,119 @@ exports.notifierInscription = onDocumentCreated(
     }
   }
 );
+
+// --- Paiement des crédits (Stripe) ------------------------------------------
+// 1 crédit = 1 concours publié. Clés à enregistrer une fois :
+//   npx firebase-tools functions:secrets:set STRIPE_SECRET_KEY      (sk_live_… ou sk_test_…)
+//   npx firebase-tools functions:secrets:set STRIPE_WEBHOOK_SECRET  (whsec_…)
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const Stripe = require("stripe");
+
+const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
+const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+// Offres : prix en centimes. À garder identique à src/lib/offres.js (affichage).
+const OFFRES = {
+  unite: { credits: 1, prix: 200, nom: "Publication d'un concours", description: "1 concours publié sur Concours Pétanque" },
+  pack10: { credits: 10, prix: 1600, nom: "Pack 10 concours", description: "10 concours publiés sur Concours Pétanque (1,60 € le concours)" }
+};
+const QUANTITE_MAX = 20;
+
+// Crée une page de paiement Stripe pour acheter des crédits ; renvoie son adresse.
+// Paramètres : { offre: "unite" | "pack10", quantite }
+exports.creerPaiement = onCall({ secrets: [STRIPE_SECRET_KEY] }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour acheter des crédits.");
+  const offre = OFFRES[request.data?.offre];
+  const quantite = Number(request.data?.quantite ?? 1);
+  if (!offre) throw new HttpsError("invalid-argument", "Offre inconnue.");
+  if (!Number.isInteger(quantite) || quantite < 1 || quantite > QUANTITE_MAX) {
+    throw new HttpsError("invalid-argument", `Choisissez une quantité entre 1 et ${QUANTITE_MAX}.`);
+  }
+  const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        quantity: quantite,
+        price_data: {
+          currency: "eur",
+          unit_amount: offre.prix,
+          product_data: { name: offre.nom, description: offre.description }
+        }
+      }
+    ],
+    client_reference_id: request.auth.uid,
+    customer_email: request.auth.token.email || undefined,
+    // Nombre total de crédits fixé ici, côté serveur : le navigateur ne choisit que l'offre et la quantité
+    metadata: { uid: request.auth.uid, credits: String(offre.credits * quantite) },
+    success_url: `${SITE}/?paiement=ok`,
+    cancel_url: `${SITE}/?paiement=annule`
+  });
+  return { url: session.url };
+});
+
+// Appelé par Stripe après un paiement : ajoute les crédits (une seule fois par paiement)
+exports.webhookStripe = onRequest({ secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET] }, async (req, res) => {
+  let event;
+  try {
+    event = Stripe.webhooks.constructEvent(req.rawBody, req.headers["stripe-signature"], STRIPE_WEBHOOK_SECRET.value());
+  } catch (error) {
+    console.warn("Signature Stripe invalide", error.message);
+    res.status(400).send("Signature invalide");
+    return;
+  }
+  if (event.type !== "checkout.session.completed" && event.type !== "checkout.session.async_payment_succeeded") {
+    res.json({ recu: true });
+    return;
+  }
+  const session = event.data.object;
+  if (session.payment_status !== "paid") {
+    res.json({ recu: true, enAttente: true });
+    return;
+  }
+  const uid = session.metadata?.uid;
+  const quantite = Number(session.metadata?.credits);
+  if (!uid || !Number.isInteger(quantite) || quantite < 1) {
+    console.error("Paiement sans uid ou nombre de crédits", session.id);
+    res.status(400).send("Métadonnées manquantes");
+    return;
+  }
+
+  const db = admin.firestore();
+  const paiementRef = db.doc(`paiements/${session.id}`);
+  const contributeurRef = db.doc(`contributeurs/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const [dejaTraite, contributeur, demande] = await Promise.all([
+      tx.get(paiementRef),
+      tx.get(contributeurRef),
+      tx.get(db.doc(`demandes/${uid}`))
+    ]);
+    if (dejaTraite.exists) return; // Stripe peut renvoyer le même événement
+    const maintenant = admin.firestore.FieldValue.serverTimestamp();
+    if (contributeur.exists) {
+      tx.update(contributeurRef, { credits: admin.firestore.FieldValue.increment(quantite), updatedAt: maintenant });
+    } else {
+      // Premier achat : le compte devient contributeur automatiquement
+      const infos = demande.exists ? demande.data() : {};
+      tx.set(contributeurRef, {
+        email: session.customer_details?.email || infos.email || "",
+        nom: infos.nom || session.customer_details?.name || "",
+        club: infos.club || "",
+        telephone: infos.telephone || "",
+        credits: quantite,
+        illimite: false,
+        createdAt: maintenant,
+        updatedAt: maintenant
+      });
+      if (demande.exists) tx.delete(demande.ref);
+    }
+    tx.set(paiementRef, {
+      uid,
+      credits: quantite,
+      montant: session.amount_total,
+      devise: session.currency,
+      email: session.customer_details?.email || "",
+      createdAt: maintenant
+    });
+  });
+  res.json({ recu: true });
+});

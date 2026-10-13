@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 
 // Ton config Firebase
 const firebaseConfig = {
@@ -21,10 +22,15 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // Services Firebase
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
 
 // Tests en local sans toucher la vraie base : REACT_APP_FIRESTORE_EMULATOR=127.0.0.1:8080 npm start
 // (avec « npx firebase-tools emulators:start --only firestore » lancé à côté)
 if (process.env.REACT_APP_FIRESTORE_EMULATOR) {
   const [host, port] = process.env.REACT_APP_FIRESTORE_EMULATOR.split(":");
   connectFirestoreEmulator(db, host, Number(port));
+}
+if (process.env.REACT_APP_FUNCTIONS_EMULATOR) {
+  const [host, port] = process.env.REACT_APP_FUNCTIONS_EMULATOR.split(":");
+  connectFunctionsEmulator(functions, host, Number(port));
 }
