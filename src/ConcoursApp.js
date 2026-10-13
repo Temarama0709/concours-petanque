@@ -10,6 +10,8 @@ import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
 import InscriptionForm from "./components/InscriptionForm.js";
 import InscriptionsAdmin from "./components/InscriptionsAdmin.js";
+import EspaceContributeur from "./components/EspaceContributeur.js";
+import GestionContributeurs from "./components/GestionContributeurs.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
@@ -77,6 +79,7 @@ function ConcoursApp() {
   const [afficheApercu, setAfficheApercu] = useState("");
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [contributeur, setContributeur] = useState(null); // document contributeurs/{uid}, ou null
   const [showMap, setShowMap] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
 
@@ -105,6 +108,27 @@ function ConcoursApp() {
       }
     });
   }, []);
+
+  // Compte contributeur de la personne connectée (crédits, accès illimité)
+  useEffect(() => {
+    if (!user) {
+      setContributeur(null);
+      return;
+    }
+    return onSnapshot(
+      doc(db, "contributeurs", user.uid),
+      (snap) => setContributeur(snap.exists() ? snap.data() : null),
+      () => setContributeur(null)
+    );
+  }, [user]);
+
+  // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
+  const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
+
+  // L'e-mail du compte sert par défaut d'e-mail organisateur
+  useEffect(() => {
+    if (showForm && user?.email) setFormData((f) => (f.email ? f : { ...f, email: user.email }));
+  }, [showForm, user]);
 
   // Concours validés (lecture publique)
   useEffect(() => {
@@ -272,15 +296,20 @@ function ConcoursApp() {
           return;
         }
       }
+      if (!peutPublier) {
+        setFormError("Votre compte ne permet pas de publier.");
+        return;
+      }
       // Concours et affiche sont écrits ensemble (même identifiant)
       const batch = writeBatch(db);
       const ref = doc(collection(db, "concours"));
       batch.set(ref, {
         ...data,
         prix,
-        // Un concours ajouté par un admin est publié directement
-        valide: isAdmin,
-        ...(isAdmin ? { source: "admin" } : {}),
+        // Admins et contributeurs publient directement
+        valide: true,
+        source: isAdmin ? "admin" : "contributeur",
+        ...(isAdmin ? {} : { auteur: user.uid }),
         ...(image ? { affiche: true } : {}),
         ...(email ? { inscriptions: true } : {}),
         createdAt: serverTimestamp()
@@ -288,12 +317,20 @@ function ConcoursApp() {
       // L'e-mail reste privé : document séparé, lisible seulement par les admins et le serveur
       if (email) batch.set(doc(db, "contacts", ref.id), { email, createdAt: serverTimestamp() });
       if (image) batch.set(doc(db, "affiches", ref.id), { image, createdAt: serverTimestamp() });
+      // Un contributeur sans accès illimité utilise 1 crédit (vérifié par les règles Firestore)
+      if (!isAdmin && !contributeur.illimite) {
+        batch.update(doc(db, "contributeurs", user.uid), {
+          credits: contributeur.credits - 1,
+          dernierConcours: ref.id,
+          updatedAt: serverTimestamp()
+        });
+      }
       await batch.commit();
       setFormData(EMPTY_FORM);
       choisirAffiche(null);
       setShowForm(false);
       setFormError("");
-      showFlash("success", isAdmin ? "Concours publié !" : "Concours proposé avec succès ! En attente de validation.");
+      showFlash("success", "Concours publié !");
     } catch (error) {
       console.error("Erreur lors de l'ajout du concours:", error);
       setFormError("L'envoi a échoué. Réessayez dans un instant.");
@@ -369,7 +406,10 @@ function ConcoursApp() {
         </div>
         {user && (
           <p className="text-[13px] text-navy-soft">
-            Connecté : {user.email}{isAdmin && " · admin"}
+            Connecté : {user.email}
+            {isAdmin
+              ? " · admin"
+              : contributeur && (contributeur.illimite ? " · contributeur" : ` · ${contributeur.credits || 0} crédit${(contributeur.credits || 0) > 1 ? "s" : ""}`)}
           </p>
         )}
         <button
@@ -378,7 +418,7 @@ function ConcoursApp() {
           className="w-full h-[50px] rounded-[10px] bg-jaune text-navy font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-jaune-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           {showForm ? <IconX size={18} /> : <IconPlus size={18} />}
-          {showForm ? "Annuler" : "Proposer un concours"}
+          {showForm ? "Annuler" : "Publier un concours"}
         </button>
       </header>
 
@@ -403,9 +443,20 @@ function ConcoursApp() {
           <ConnexionForm onSuccess={() => setShowLogin(false)} onCancel={() => setShowLogin(false)} />
         )}
 
-        {showForm && (
+        {showForm && !peutPublier && (
+          <EspaceContributeur
+            user={user}
+            contributeur={contributeur}
+            onConnexion={() => {
+              setShowForm(false);
+              setShowLogin(true);
+            }}
+          />
+        )}
+
+        {showForm && peutPublier && (
           <form onSubmit={handleAddConcours} className="bg-white border-2 border-bord rounded-xl p-4 space-y-3">
-            <h2 className="text-[15px] font-black uppercase tracking-wider">Proposer un concours</h2>
+            <h2 className="text-[15px] font-black uppercase tracking-wider">Publier un concours</h2>
             <div className="space-y-1">
               <label htmlFor="affiche" className="block text-sm font-bold">
                 Affiche <span className="font-normal text-ardoise">(remplit le formulaire automatiquement)</span>
@@ -457,7 +508,7 @@ function ConcoursApp() {
               <Input
                 type="email"
                 aria-label="E-mail de l'organisateur"
-                placeholder={isAdmin ? "E-mail de l'organisateur (facultatif)" : "Votre e-mail (pour recevoir les inscriptions)"}
+                placeholder={isAdmin ? "E-mail de l'organisateur (facultatif)" : "E-mail de l'organisateur (reçoit les inscriptions)"}
                 autoComplete="email"
                 maxLength={200}
                 value={formData.email}
@@ -633,8 +684,10 @@ function ConcoursApp() {
                 <IconRoute size={18} /> Itinéraire
               </a>
             </div>
-            {isAdmin && selectedConcours.inscriptions && <InscriptionsAdmin concoursId={selectedConcours.id} />}
-            {isAdmin && (
+            {(isAdmin || (user && selectedConcours.auteur === user.uid)) && selectedConcours.inscriptions && (
+              <InscriptionsAdmin concoursId={selectedConcours.id} />
+            )}
+            {(isAdmin || (user && selectedConcours.auteur === user.uid)) && (
               <Button variant="destructive" className="w-full" onClick={() => handleSupprimer(selectedConcours.id)}>
                 Supprimer ce concours
               </Button>
@@ -649,10 +702,12 @@ function ConcoursApp() {
 function AdminPanel({ propositions, concoursList, handleValider, handleSupprimer }) {
   return (
     <section className="pt-4 space-y-4" aria-label="Administration">
+      <GestionContributeurs />
+
       <ImportCalendrier concoursExistants={[...concoursList, ...propositions]} />
 
       <h2 className="text-[15px] font-black uppercase tracking-wider">
-        Propositions à valider {propositions.length > 0 && `(${propositions.length})`}
+        Anciennes propositions à valider {propositions.length > 0 && `(${propositions.length})`}
       </h2>
       {propositions.map((c) => (
         <Card key={c.id}>

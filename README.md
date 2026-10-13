@@ -71,3 +71,17 @@ Pour activer l'envoi (une seule fois) :
 3. `npx firebase-tools functions:secrets:set SMTP_URL` puis coller
    `smtps://IDENTIFIANT:CLE@smtp-relay.brevo.com:465`
 4. `npm run deploy:functions` (l'adresse d'expédition est demandée au premier déploiement).
+
+## Comptes contributeurs et crédits
+
+Seuls les admins et les **contributeurs** peuvent publier un concours ; il n'y a plus de
+proposition anonyme. Un concours publié par un contributeur est en ligne immédiatement
+et utilise **1 crédit** (sauf accès illimité). Les règles Firestore l'imposent : un
+contributeur ne peut ni se donner des crédits, ni publier sans en utiliser un.
+
+- Une personne crée un compte, puis fait une **demande** depuis « Publier un concours ».
+- Dans le panneau admin, l'admin **accepte** la demande avec N crédits ou un **accès illimité**
+  (clubs partenaires), ajoute ou retire des crédits, ou retire le compte.
+- Le contributeur voit ses crédits restants, la liste des inscrits à ses concours,
+  et peut supprimer ses propres concours.
+- Collections : `contributeurs/{uid}` (crédits, illimite), `demandes/{uid}`.

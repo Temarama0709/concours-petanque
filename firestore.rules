@@ -10,9 +10,24 @@ service cloud.firestore {
             || request.auth.token.get('admin', false) == true);
     }
 
+    function chemin(collection, id) {
+      return /databases/$(database)/documents/$(collection)/$(id);
+    }
+
+    // Compte contributeur de la personne connectée (créé par un admin)
+    function estContributeur() {
+      return request.auth != null && exists(chemin('contributeurs', request.auth.uid));
+    }
+
+    // Auteur d'un concours (contributeur qui l'a publié)
+    function estAuteur(concoursId) {
+      return request.auth != null
+        && get(chemin('concours', concoursId)).data.get('auteur', '') == request.auth.uid;
+    }
+
     // Formats : doit rester identique à src/lib/formats.js
     function isValidConcours(d) {
-      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'source', 'affiche', 'inscriptions', 'createdAt'])
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'source', 'auteur', 'affiche', 'inscriptions', 'createdAt'])
         && d.get('affiche', false) is bool
         && d.get('inscriptions', false) is bool
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120
@@ -39,33 +54,79 @@ service cloud.firestore {
         && d.createdAt == request.time;
     }
 
-    // Proposition du public : tarif obligatoire, toujours en attente de validation
-    function isValidProposal(d) {
+    // Publication par un contributeur : publiée directement, à son nom, tarif obligatoire
+    function isValidConcoursContributeur(d) {
       return isValidConcours(d)
-        && !('source' in d)
+        && d.source == 'contributeur'
+        && d.auteur == request.auth.uid
         && d.prix is number && d.prix >= 0 && d.prix <= 10000
-        && d.valide == false;
+        && d.valide == true;
+    }
+
+    // Le contributeur a un accès illimité, ou utilise 1 crédit dans le même envoi
+    function paieLaPublication(concoursId) {
+      let avant = get(chemin('contributeurs', request.auth.uid)).data;
+      let apres = getAfter(chemin('contributeurs', request.auth.uid)).data;
+      return avant.get('illimite', false) == true
+        || (avant.credits >= 1
+            && apres.credits == avant.credits - 1
+            && apres.dernierConcours == concoursId);
     }
 
     // Ajout par un admin (formulaire ou import de calendrier) : tarif facultatif
     function isValidAdminConcours(d) {
       return isValidConcours(d)
+        && !('auteur' in d)
         && d.get('source', 'admin') in ['admin', 'import']
         && (d.prix == null || (d.prix is number && d.prix >= 0 && d.prix <= 10000))
         && d.valide is bool;
     }
 
     match /concours/{id} {
-      // Tout le monde voit les concours validés ; les admins voient aussi les propositions.
+      // Tout le monde voit les concours publiés ; les admins voient aussi les anciennes propositions.
       allow read: if resource.data.valide == true || isAdmin();
-      // Tout le monde peut proposer un concours, qui arrive non validé.
-      // Les admins peuvent aussi publier directement (formulaire ou import).
-      allow create: if isValidProposal(request.resource.data)
-        || (isAdmin() && isValidAdminConcours(request.resource.data));
-      // Seuls les admins valident, modifient ou suppriment.
-      allow update, delete: if isAdmin();
+      // Publier est réservé aux admins et aux contributeurs (1 crédit par concours, sauf accès illimité).
+      allow create: if (isAdmin() && isValidAdminConcours(request.resource.data))
+        || (estContributeur()
+            && isValidConcoursContributeur(request.resource.data)
+            && paieLaPublication(id));
+      allow update: if isAdmin();
+      // Un contributeur peut supprimer ses propres concours.
+      allow delete: if isAdmin()
+        || (request.auth != null && resource.data.get('auteur', '') == request.auth.uid);
     }
 
+    // Comptes contributeurs : créés, crédités et retirés par un admin.
+    // Le contributeur ne peut que retirer 1 crédit en publiant un nouveau concours.
+    match /contributeurs/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (request.auth != null && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'dernierConcours', 'updatedAt'])
+            && request.resource.data.credits == resource.data.credits - 1
+            && request.resource.data.updatedAt == request.time
+            && !exists(chemin('concours', request.resource.data.dernierConcours))
+            && getAfter(chemin('concours', request.resource.data.dernierConcours)).data.get('auteur', '') == uid);
+    }
+
+    // Demandes de compte contributeur (une par compte)
+    function isValidDemande(d) {
+      return d.keys().hasOnly(['email', 'nom', 'club', 'telephone', 'message', 'createdAt'])
+        && d.email == request.auth.token.email
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 80
+        && d.club is string && d.club.size() <= 80
+        && d.telephone is string && d.telephone.matches('^[0-9 +.]{6,20}$')
+        && d.message is string && d.message.size() <= 500
+        && d.createdAt == request.time;
+    }
+
+    match /demandes/{uid} {
+      allow read, delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !exists(chemin('contributeurs', uid))
+        && isValidDemande(request.resource.data);
+    }
 
     // Affiche d'un concours (même identifiant), image JPEG en base64
     function isValidAffiche(d) {
@@ -74,16 +135,20 @@ service cloud.firestore {
         && d.createdAt == request.time;
     }
 
+    // Affiche ou e-mail ne peuvent être joints qu'en créant son propre concours, dans le même envoi
+    function creeSonConcours(id) {
+      return request.auth != null
+        && !exists(chemin('concours', id))
+        && getAfter(chemin('concours', id)).data.get('auteur', '') == request.auth.uid;
+    }
+
     match /affiches/{id} {
       allow read: if isAdmin()
-        || get(/databases/$(database)/documents/concours/$(id)).data.valide == true;
-      // Le public ne peut joindre une affiche qu'en créant son concours dans le même envoi
+        || get(chemin('concours', id)).data.valide == true;
       allow create: if isValidAffiche(request.resource.data)
-        && (isAdmin()
-            || (!exists(/databases/$(database)/documents/concours/$(id))
-                && getAfter(/databases/$(database)/documents/concours/$(id)).data.valide == false));
+        && (isAdmin() || creeSonConcours(id));
       allow update: if isAdmin() && isValidAffiche(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || estAuteur(id);
     }
 
     // E-mail de l'organisateur (même identifiant que le concours) : jamais lisible par le public
@@ -95,18 +160,15 @@ service cloud.firestore {
     }
 
     match /contacts/{id} {
-      allow read: if isAdmin();
-      // Comme pour l'affiche : fourni uniquement à la création du concours
+      allow read: if isAdmin() || estAuteur(id);
       allow create: if isValidContact(request.resource.data)
-        && (isAdmin()
-            || (!exists(/databases/$(database)/documents/concours/$(id))
-                && getAfter(/databases/$(database)/documents/concours/$(id)).data.valide == false));
+        && (isAdmin() || creeSonConcours(id));
       allow update: if isAdmin() && isValidContact(request.resource.data);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || estAuteur(id);
     }
 
     // Inscriptions : tout le monde peut s'inscrire à un concours publié qui les accepte ;
-    // seuls les admins (et le serveur, pour l'e-mail) peuvent les lire.
+    // seuls les admins, l'auteur du concours (et le serveur, pour l'e-mail) peuvent les lire.
     function isValidInscription(d) {
       return d.keys().hasOnly(['concoursId', 'joueurs', 'club', 'telephone', 'email', 'createdAt'])
         && d.concoursId is string
@@ -120,11 +182,12 @@ service cloud.firestore {
     }
 
     match /inscriptions/{id} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || estAuteur(resource.data.concoursId);
       allow create: if isValidInscription(request.resource.data)
-        && get(/databases/$(database)/documents/concours/$(request.resource.data.concoursId)).data.valide == true
-        && get(/databases/$(database)/documents/concours/$(request.resource.data.concoursId)).data.get('inscriptions', false) == true;
-      allow update, delete: if isAdmin();
+        && get(chemin('concours', request.resource.data.concoursId)).data.valide == true
+        && get(chemin('concours', request.resource.data.concoursId)).data.get('inscriptions', false) == true;
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || estAuteur(resource.data.concoursId);
     }
   }
 }
