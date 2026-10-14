@@ -5,7 +5,16 @@ import { Button } from "./ui/button.js";
 import { OFFRES, formatEuros } from "../lib/offres.js";
 
 // Choix d'une offre puis redirection vers la page de paiement sécurisée de Stripe
+// Achat en ligne activé seulement quand Stripe est branché :
+// mettre REACT_APP_PAIEMENT=on dans le fichier .env, puis npm run deploy
+export const PAIEMENT_ACTIF = process.env.REACT_APP_PAIEMENT === "on";
+
 export default function AchatCredits() {
+  if (!PAIEMENT_ACTIF) return null; // achats masqués
+  return <FormulaireAchat />;
+}
+
+function FormulaireAchat() {
   const [offreId, setOffreId] = useState("pack10");
   const [quantite, setQuantite] = useState(1);
   const [envoi, setEnvoi] = useState(false);

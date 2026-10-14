@@ -12,7 +12,7 @@ import InscriptionForm from "./components/InscriptionForm.js";
 import InscriptionsAdmin from "./components/InscriptionsAdmin.js";
 import EspaceContributeur from "./components/EspaceContributeur.js";
 import GestionContributeurs from "./components/GestionContributeurs.js";
-import AchatCredits from "./components/AchatCredits.js";
+import AchatCredits, { PAIEMENT_ACTIF } from "./components/AchatCredits.js";
 import EcranTournoi from "./components/tournoi/EcranTournoi.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
@@ -476,9 +476,11 @@ function ConcoursApp() {
                   <span>
                     <b>{contributeur.credits}</b> crédit{contributeur.credits > 1 ? "s" : ""} restant{contributeur.credits > 1 ? "s" : ""} · cette publication en utilise 1
                   </span>
-                  <Button size="sm" variant="ghost" onClick={() => setAchatOuvert(!achatOuvert)}>
-                    {achatOuvert ? "Fermer" : "Acheter"}
-                  </Button>
+                  {PAIEMENT_ACTIF && (
+                    <Button size="sm" variant="ghost" onClick={() => setAchatOuvert(!achatOuvert)}>
+                      {achatOuvert ? "Fermer" : "Acheter"}
+                    </Button>
+                  )}
                 </div>
                 {achatOuvert && <AchatCredits />}
               </div>
