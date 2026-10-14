@@ -7,8 +7,9 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "deploy": "react-scripts build && npx -y firebase-tools deploy --only hosting,firestore:rules",
-    "deploy:functions": "cd functions && npm install && cd .. && npx -y firebase-tools deploy --only functions"
+    "deploy": "react-scripts build && firebase deploy --only hosting,firestore:rules",
+    "deploy:functions": "cd functions && npm install && cd .. && firebase deploy --only functions",
+    "demo": "node scripts/demo.js"
   },
   "dependencies": {
     "date-fns": "^2.30.0",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "firebase-tools": "^15.33.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17"
   },

@@ -123,3 +123,16 @@ Données : `tournois/{concoursId}` et `tournois/{concoursId}/parties/{id}`.
 Tests en local avec les émulateurs (sans toucher la vraie base) :
 `REACT_APP_FIRESTORE_EMULATOR=127.0.0.1:8080 REACT_APP_AUTH_EMULATOR=127.0.0.1:9099 npm start`
 avec `npx firebase-tools emulators:start --only firestore,auth` lancé à côté.
+
+## Mode démo (tester sans toucher au vrai site)
+
+```
+npm install
+npm run demo
+```
+Lance une fausse base de données sur l'ordinateur (émulateurs Firebase, Java requis :
+https://adoptium.net), la remplit avec 3 concours et 8 équipes inscrites, puis ouvre
+l'application sur http://localhost:3000. Comptes (mot de passe `petanque`) :
+`orga@test.fr` (organisateur, 5 crédits), `joueur1@test.fr` à `joueur4@test.fr`
+(joueurs inscrits), `nouveau@test.fr`, `admin@test.fr`. Ctrl + C pour arrêter ;
+les données de démo sont effacées.
