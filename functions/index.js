@@ -45,7 +45,8 @@ exports.notifierInscription = onDocumentCreated(
   { document: "inscriptions/{id}", secrets: [SMTP_URL] },
   async (event) => {
     const ins = event.data?.data();
-    if (!ins) return;
+    // Pas d'e-mail pour une équipe que l'organisateur inscrit lui-même sur place
+    if (!ins || ins.surPlace) return;
     const db = admin.firestore();
     const [concoursSnap, contactSnap, autresSnap] = await Promise.all([
       db.doc(`concours/${ins.concoursId}`).get(),

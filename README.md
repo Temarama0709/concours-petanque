@@ -103,3 +103,23 @@ Mise en place (une seule fois, projet en offre Blaze) :
 
 Chaque paiement est enregistré dans la collection `paiements` ; un même paiement
 n'est jamais crédité deux fois.
+
+## Gestion du concours (poules, tirage, terrains, scores)
+
+Depuis la fiche d'un concours :
+- **Gérer le concours** (auteur ou admin) : pointage des équipes présentes, inscription
+  sur place, choix de la formule (poules de 4 avec gagnants / perdants / barrage, poules
+  de 3 si nécessaire, ou élimination directe), nombre de terrains, parties en 13 ou 11,
+  puis **tirage** (clubs séparés autant que possible). Tant que cet écran est ouvert, les
+  tours suivants sont créés et les terrains libres attribués automatiquement. Phase finale :
+  2 qualifiés par poule, exempts pour compléter le tableau, jusqu'au vainqueur.
+- **Suivre le concours** (tout le monde) : classements des poules, parties, terrains, tableau final.
+  Une équipe inscrite en étant connectée voit « Votre équipe » et saisit ses scores ;
+  si l'équipe adverse a aussi un compte, elle doit confirmer. L'organisateur peut toujours corriger.
+
+Moteur : `src/lib/tournoi.js` (testé dans `src/lib/__tests__/tournoi.test.js`).
+Données : `tournois/{concoursId}` et `tournois/{concoursId}/parties/{id}`.
+
+Tests en local avec les émulateurs (sans toucher la vraie base) :
+`REACT_APP_FIRESTORE_EMULATOR=127.0.0.1:8080 REACT_APP_AUTH_EMULATOR=127.0.0.1:9099 npm start`
+avec `npx firebase-tools emulators:start --only firestore,auth` lancé à côté.

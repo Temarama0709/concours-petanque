@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { connectAuthEmulator, getAuth } from "firebase/auth";
 import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
 
 // Ton config Firebase
@@ -29,6 +29,9 @@ export const functions = getFunctions(app);
 if (process.env.REACT_APP_FIRESTORE_EMULATOR) {
   const [host, port] = process.env.REACT_APP_FIRESTORE_EMULATOR.split(":");
   connectFirestoreEmulator(db, host, Number(port));
+}
+if (process.env.REACT_APP_AUTH_EMULATOR) {
+  connectAuthEmulator(auth, `http://${process.env.REACT_APP_AUTH_EMULATOR}`, { disableWarnings: true });
 }
 if (process.env.REACT_APP_FUNCTIONS_EMULATOR) {
   const [host, port] = process.env.REACT_APP_FUNCTIONS_EMULATOR.split(":");

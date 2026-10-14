@@ -167,27 +167,103 @@ service cloud.firestore {
       allow delete: if isAdmin() || estAuteur(id);
     }
 
-    // Inscriptions : tout le monde peut s'inscrire à un concours publié qui les accepte ;
-    // seuls les admins, l'auteur du concours (et le serveur, pour l'e-mail) peuvent les lire.
+    // Inscriptions : tout le monde peut s'inscrire à un concours publié qui les accepte,
+    // avec au moins un téléphone ou un e-mail ; l'organisateur peut inscrire une équipe sur place.
+    // Lecture : admins, auteur du concours (et le serveur, pour l'e-mail).
+    function telephoneValide(t) {
+      return t is string && t.matches('^[0-9 +.]{6,20}$');
+    }
+    function emailValide(e) {
+      return e is string && e.size() <= 200 && e.matches('^[^@\\s]+@[^@\\s]+[.][^@\\s]+$');
+    }
     function isValidInscription(d) {
-      return d.keys().hasOnly(['concoursId', 'joueurs', 'club', 'telephone', 'email', 'createdAt'])
+      return d.keys().hasOnly(['concoursId', 'joueurs', 'club', 'telephone', 'email', 'uid', 'surPlace', 'presente', 'createdAt'])
         && d.concoursId is string
         && d.joueurs is list && d.joueurs.size() >= 1 && d.joueurs.size() <= 4
         && d.joueurs[0] is string && d.joueurs[0].size() > 0 && d.joueurs[0].size() <= 80
         && d.club is string && d.club.size() <= 80
-        && d.telephone is string && d.telephone.matches('^[0-9 +.]{6,20}$')
-        && d.email is string && d.email.size() <= 200
-        && (d.email == '' || d.email.matches('^[^@\\s]+@[^@\\s]+[.][^@\\s]+$'))
+        && d.telephone is string && (d.telephone == '' || telephoneValide(d.telephone))
+        && d.email is string && (d.email == '' || emailValide(d.email))
         && d.createdAt == request.time;
+    }
+    function inscriptionPublique(d) {
+      return isValidInscription(d)
+        && (d.telephone != '' || d.email != '')
+        && d.get('uid', null) == (request.auth == null ? null : request.auth.uid)
+        && d.get('surPlace', false) == false
+        && !('presente' in d)
+        && get(chemin('concours', d.concoursId)).data.valide == true
+        && get(chemin('concours', d.concoursId)).data.get('inscriptions', false) == true;
+    }
+    function inscriptionSurPlace(d) {
+      return isValidInscription(d)
+        && (isAdmin() || estAuteur(d.concoursId))
+        && d.get('uid', null) == null
+        && d.surPlace == true
+        && d.get('presente', false) is bool;
     }
 
     match /inscriptions/{id} {
       allow read: if isAdmin() || estAuteur(resource.data.concoursId);
-      allow create: if isValidInscription(request.resource.data)
-        && get(chemin('concours', request.resource.data.concoursId)).data.valide == true
-        && get(chemin('concours', request.resource.data.concoursId)).data.get('inscriptions', false) == true;
-      allow update: if isAdmin();
+      allow create: if inscriptionPublique(request.resource.data) || inscriptionSurPlace(request.resource.data);
+      // L'organisateur pointe les équipes présentes
+      allow update: if isAdmin()
+        || (estAuteur(resource.data.concoursId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presente'])
+            && request.resource.data.presente is bool);
       allow delete: if isAdmin() || estAuteur(resource.data.concoursId);
+    }
+
+    // Tournoi d'un concours (équipes, poules) : public en lecture, géré par l'organisateur
+    match /tournois/{concoursId} {
+      allow read: if true;
+      allow create, update: if (isAdmin() || estAuteur(concoursId))
+        && request.resource.data.statut in ['poules', 'finale', 'termine']
+        && request.resource.data.format in ['poules', 'elimination']
+        && request.resource.data.equipes is list
+        && request.resource.data.nbTerrains is int
+        && request.resource.data.pointsGagnants in [11, 13];
+      allow delete: if isAdmin() || estAuteur(concoursId);
+
+      // Parties : créées par l'organisateur ; les équipes connectées saisissent leurs scores
+      match /parties/{partieId} {
+        allow read: if true;
+        allow create, delete: if isAdmin() || estAuteur(concoursId);
+        allow update: if isAdmin() || estAuteur(concoursId) || saisieJoueur();
+
+        function scoresValides(d) {
+          return d.scoreA is int && d.scoreB is int
+            && d.scoreA >= 0 && d.scoreB >= 0 && d.scoreA <= 13 && d.scoreB <= 13
+            && d.scoreA != d.scoreB;
+        }
+        function camp() {
+          return request.auth == null ? ''
+            : request.auth.uid == resource.data.uidA ? 'A'
+            : request.auth.uid == resource.data.uidB ? 'B'
+            : '';
+        }
+        function saisieJoueur() {
+          let avant = resource.data;
+          let apres = request.resource.data;
+          let moi = camp();
+          let adverseConnecte = (moi == 'A' ? avant.uidB : avant.uidA) != null;
+          return moi != ''
+            && avant.equipeB != null
+            && avant.statut != 'validee'
+            && apres.diff(avant).affectedKeys().hasOnly(['scoreA', 'scoreB', 'statut', 'saisiePar', 'updatedAt'])
+            && apres.updatedAt == request.time
+            && (
+              // Proposer (ou corriger) un score
+              (apres.saisiePar == moi && scoresValides(apres)
+                && apres.statut == (adverseConnecte ? 'en_attente' : 'validee'))
+              // Confirmer le score proposé par l'adversaire
+              || (avant.statut == 'en_attente' && avant.saisiePar != moi
+                  && apres.saisiePar == avant.saisiePar
+                  && apres.scoreA == avant.scoreA && apres.scoreB == avant.scoreB
+                  && apres.statut == 'validee')
+            );
+        }
+      }
     }
 
     // Paiements Stripe : écrits uniquement par le serveur (webhookStripe)

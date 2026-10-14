@@ -13,6 +13,7 @@ import InscriptionsAdmin from "./components/InscriptionsAdmin.js";
 import EspaceContributeur from "./components/EspaceContributeur.js";
 import GestionContributeurs from "./components/GestionContributeurs.js";
 import AchatCredits from "./components/AchatCredits.js";
+import EcranTournoi from "./components/tournoi/EcranTournoi.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
@@ -72,6 +73,7 @@ function ConcoursApp() {
   const [selectedConcours, setSelectedConcours] = useState(null);
   const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
   const [achatOuvert, setAchatOuvert] = useState(false);
+  const [ecranTournoi, setEcranTournoi] = useState(null); // { concours, gestion }
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -384,11 +386,11 @@ function ConcoursApp() {
 
   // Échap ferme la fiche du concours
   useEffect(() => {
-    if (!selectedConcours) return;
+    if (!selectedConcours || ecranTournoi) return;
     const fermer = (e) => e.key === "Escape" && setSelectedConcours(null);
     window.addEventListener("keydown", fermer);
     return () => window.removeEventListener("keydown", fermer);
-  }, [selectedConcours]);
+  }, [selectedConcours, ecranTournoi]);
 
   const boutonHeader = "w-11 h-11 shrink-0 rounded-[10px] border-[1.5px] border-navy-line flex items-center justify-center hover:bg-navy-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-jaune";
 
@@ -654,6 +656,15 @@ function ConcoursApp() {
         )}
       </main>
 
+      {ecranTournoi && (
+        <EcranTournoi
+          concours={ecranTournoi.concours}
+          gestion={ecranTournoi.gestion}
+          uid={user?.uid || null}
+          onFermer={() => setEcranTournoi(null)}
+        />
+      )}
+
       {selectedConcours && (
         <div className="fixed inset-0 z-[1100] bg-black/50 flex items-end justify-center" onClick={() => setSelectedConcours(null)}>
           <div
@@ -690,7 +701,7 @@ function ConcoursApp() {
             <AfficheConcours concours={selectedConcours} />
             {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && (
               inscriptionOuverte ? (
-                <InscriptionForm concours={selectedConcours} onTermine={() => setInscriptionOuverte(false)} />
+                <InscriptionForm concours={selectedConcours} user={user} onTermine={() => setInscriptionOuverte(false)} />
               ) : (
                 <Button className="w-full" onClick={() => setInscriptionOuverte(true)}>S'inscrire à ce concours</Button>
               )
@@ -708,6 +719,16 @@ function ConcoursApp() {
                 <IconRoute size={18} /> Itinéraire
               </a>
             </div>
+            {selectedConcours.inscriptions && (
+              <Button variant="navy" className="w-full" onClick={() => setEcranTournoi({ concours: selectedConcours, gestion: false })}>
+                Suivre le concours · poules, terrains, scores
+              </Button>
+            )}
+            {(isAdmin || (user && selectedConcours.auteur === user.uid)) && (
+              <Button variant="outline" className="w-full" onClick={() => setEcranTournoi({ concours: selectedConcours, gestion: true })}>
+                Gérer le concours · pointage et tirage
+              </Button>
+            )}
             {(isAdmin || (user && selectedConcours.auteur === user.uid)) && selectedConcours.inscriptions && (
               <InscriptionsAdmin concoursId={selectedConcours.id} />
             )}
