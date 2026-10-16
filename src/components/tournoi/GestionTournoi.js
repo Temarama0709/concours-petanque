@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "../../utils/firebase.js";
 import { Button } from "../ui/button.js";
 import { Input } from "../ui/input.js";
@@ -9,6 +9,8 @@ import {
   partiesSuivantesPoule, premierTourFinale, repartitionPoules, tourSuivantFinale
 } from "../../lib/tournoi.js";
 import { attribuerTerrains, creerParties, enregistrerTirage, supprimerTournoi } from "../../lib/tournoiFirestore.js";
+import { EMAIL_VALIDE, joueursParEquipe } from "../../lib/formats.js";
+import { todayKey } from "../../lib/dates.js";
 
 const titre = "text-[15px] font-black uppercase tracking-wider";
 
@@ -20,7 +22,6 @@ export default function GestionTournoi({ concours, tournoi, parties }) {
 
 function PreparationTirage({ concours }) {
   const [inscriptions, setInscriptions] = useState(null);
-  const [ajout, setAjout] = useState({ joueurs: "", club: "" });
   const [format, setFormat] = useState("poules");
   const [nbTerrains, setNbTerrains] = useState(8);
   const [pointsGagnants, setPointsGagnants] = useState(13);
@@ -43,22 +44,8 @@ function PreparationTirage({ concours }) {
   const basculer = (i) => updateDoc(doc(db, "inscriptions", i.id), { presente: !i.presente });
   const toutPointer = () => (inscriptions || []).filter((i) => !i.presente).forEach(basculer);
 
-  const ajouterSurPlace = async (e) => {
-    e.preventDefault();
-    const joueurs = ajout.joueurs.split(/[,/\n]/).map((j) => j.trim()).filter(Boolean).slice(0, 4);
-    if (!joueurs.length) return;
-    await addDoc(collection(db, "inscriptions"), {
-      concoursId: concours.id,
-      joueurs,
-      club: ajout.club.trim(),
-      telephone: "",
-      email: "",
-      uid: null,
-      surPlace: true,
-      presente: true,
-      createdAt: serverTimestamp()
-    });
-    setAjout({ joueurs: "", club: "" });
+  const retirer = (i) => {
+    if (window.confirm(`Retirer l'équipe « ${i.joueurs.join(" / ")} » ?`)) deleteDoc(doc(db, "inscriptions", i.id));
   };
 
   const lancer = async () => {
@@ -92,32 +79,32 @@ function PreparationTirage({ concours }) {
     <div className="space-y-6">
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className={titre}>Pointage ({presentes.length}/{inscriptions.length} présentes)</h3>
+          <h3 className={titre}>Équipes ({presentes.length}/{inscriptions.length} présentes)</h3>
           {inscriptions.some((i) => !i.presente) && <Button size="sm" variant="ghost" onClick={toutPointer}>Tout cocher</Button>}
         </div>
-        <p className="text-sm text-ardoise">Cochez les équipes présentes : seules elles participent au tirage.</p>
+        <p className="text-sm text-ardoise">
+          Le jour du concours, cochez les équipes présentes : seules elles participent au tirage.
+        </p>
         {inscriptions.length === 0 && <p className="text-sm text-ardoise">Aucune inscription pour l'instant.</p>}
         <ul className="divide-y-[1.5px] divide-bord border-y-[1.5px] border-bord">
           {inscriptions.map((i) => (
-            <li key={i.id}>
-              <label className="flex items-start gap-3 py-2 cursor-pointer">
+            <li key={i.id} className="flex items-start gap-2">
+              <label className="flex-1 min-w-0 flex items-start gap-3 py-2 cursor-pointer">
                 <input type="checkbox" className="mt-1 w-5 h-5 accent-navy" checked={!!i.presente} onChange={() => basculer(i)} />
                 <span className="min-w-0">
                   <span className="block font-bold">{i.joueurs.join(" / ")}</span>
                   <span className="block text-sm text-ardoise">
-                    {[i.club, i.telephone, i.email, i.surPlace && "inscrite sur place", i.uid && "a l'application"].filter(Boolean).join(" · ")}
+                    {[i.club, i.telephone, i.email, i.surPlace && "ajoutée par l'organisateur", i.uid && "a l'application"].filter(Boolean).join(" · ")}
                   </span>
                 </span>
               </label>
+              <Button size="sm" variant="ghost" className="mt-1 shrink-0" aria-label={`Retirer ${i.joueurs.join(" / ")}`} onClick={() => retirer(i)}>
+                Retirer
+              </Button>
             </li>
           ))}
         </ul>
-        <form onSubmit={ajouterSurPlace} className="rounded-xl bg-fond p-3 space-y-2">
-          <p className="text-sm font-bold">Inscrire une équipe sur place</p>
-          <Input className="bg-white" aria-label="Joueurs" placeholder="Joueurs, séparés par des virgules" value={ajout.joueurs} onChange={(e) => setAjout((a) => ({ ...a, joueurs: e.target.value }))} />
-          <Input className="bg-white" aria-label="Club" placeholder="Club (facultatif)" value={ajout.club} onChange={(e) => setAjout((a) => ({ ...a, club: e.target.value }))} />
-          <Button type="submit" size="sm" variant="navy">Ajouter et pointer</Button>
-        </form>
+        <AjoutEquipe concours={concours} />
       </section>
 
       <section className="space-y-3">
@@ -222,5 +209,76 @@ function DeroulementTournoi({ concours, tournoi, parties }) {
       <TableauTournoi concoursId={concours.id} tournoi={tournoi} parties={parties} mode="orga" />
       <Button variant="destructive" size="sm" onClick={annuler}>Annuler le tirage</Button>
     </div>
+  );
+}
+
+// L'organisateur inscrit une équipe lui-même (par téléphone, à l'avance ou sur place)
+function AjoutEquipe({ concours }) {
+  const nb = joueursParEquipe(concours.format);
+  const vide = { joueurs: Array(nb).fill(""), club: "", telephone: "", email: "" };
+  const [form, setForm] = useState(vide);
+  const jourJ = concours.date <= todayKey();
+  const [presente, setPresente] = useState(jourJ);
+  const [erreur, setErreur] = useState("");
+
+  const ajouter = async (e) => {
+    e.preventDefault();
+    const joueurs = form.joueurs.map((j) => j.trim()).filter(Boolean);
+    const telephone = form.telephone.trim();
+    const email = form.email.trim();
+    if (!joueurs.length) return setErreur("Indiquez au moins le nom d'un joueur.");
+    if (telephone && !/^[0-9 +.]{6,20}$/.test(telephone)) return setErreur("Le numéro de téléphone n'est pas valide.");
+    if (email && !EMAIL_VALIDE.test(email)) return setErreur("L'adresse e-mail n'est pas valide.");
+    setErreur("");
+    // Formulaire vidé tout de suite : on peut saisir l'équipe suivante sans attendre le serveur
+    const saisie = form;
+    setForm(vide);
+    try {
+      await addDoc(collection(db, "inscriptions"), {
+        concoursId: concours.id,
+        joueurs,
+        club: saisie.club.trim(),
+        telephone,
+        email,
+        uid: null,
+        surPlace: true,
+        presente,
+        createdAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Ajout d'équipe:", error);
+      setForm(saisie);
+      setErreur("L'ajout a échoué. Réessayez.");
+    }
+  };
+
+  const champ = (cle) => ({ value: form[cle], onChange: (e) => setForm((f) => ({ ...f, [cle]: e.target.value })) });
+
+  return (
+    <form onSubmit={ajouter} className="rounded-xl bg-fond p-3 space-y-2">
+      <p className="text-sm font-bold">Ajouter une équipe</p>
+      {form.joueurs.map((nom, k) => (
+        <Input
+          key={k}
+          className="bg-white"
+          aria-label={`Joueur ${k + 1}`}
+          placeholder={nb === 1 ? "Nom et prénom" : `Joueur ${k + 1} : nom et prénom`}
+          maxLength={80}
+          value={nom}
+          onChange={(e) => setForm((f) => ({ ...f, joueurs: f.joueurs.map((j, x) => (x === k ? e.target.value : j)) }))}
+        />
+      ))}
+      <Input className="bg-white" aria-label="Club" placeholder="Club (facultatif)" maxLength={80} {...champ("club")} />
+      <div className="grid grid-cols-2 gap-2">
+        <Input className="bg-white" type="tel" aria-label="Téléphone" placeholder="Téléphone (facultatif)" maxLength={20} {...champ("telephone")} />
+        <Input className="bg-white" type="email" aria-label="E-mail" placeholder="E-mail (facultatif)" maxLength={200} {...champ("email")} />
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="w-4 h-4 accent-navy" checked={presente} onChange={(e) => setPresente(e.target.checked)} />
+        Équipe présente (pointée pour le tirage)
+      </label>
+      {erreur && <p className="text-sm font-semibold text-red-700">{erreur}</p>}
+      <Button type="submit" size="sm" variant="navy">Ajouter l'équipe</Button>
+    </form>
   );
 }

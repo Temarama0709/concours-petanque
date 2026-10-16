@@ -728,7 +728,7 @@ function ConcoursApp() {
             )}
             {(isAdmin || (user && selectedConcours.auteur === user.uid)) && (
               <Button variant="outline" className="w-full" onClick={() => setEcranTournoi({ concours: selectedConcours, gestion: true })}>
-                Gérer le concours · pointage et tirage
+                Gérer le concours · équipes, pointage, tirage
               </Button>
             )}
             {(isAdmin || (user && selectedConcours.auteur === user.uid)) && selectedConcours.inscriptions && (
