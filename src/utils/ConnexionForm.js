@@ -6,6 +6,8 @@ import {
 } from "firebase/auth";
 import { Button } from "../components/ui/button.js";
 import { Input } from "../components/ui/input.js";
+import ChoixClub from "../components/ChoixClub.js";
+import { AFFILIATION_VIDE, enregistrerProfil, erreurAffiliation, useClubs } from "../lib/clubs.js";
 
 // Les droits admin ne dépendent plus de l'email ni du mot de passe saisis :
 // ils sont décidés par les règles Firestore (UID autorisé ou droit "admin").
@@ -14,6 +16,8 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
   const [password, setPassword] = useState("");
   const [isSignup, setIsSignup] = useState(false);
   const [message, setMessage] = useState("");
+  const [affiliation, setAffiliation] = useState(AFFILIATION_VIDE);
+  const clubs = useClubs();
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -21,9 +25,18 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
       setMessage("Champs requis.");
       return;
     }
+    if (isSignup && erreurAffiliation(affiliation)) {
+      setMessage("❌ " + erreurAffiliation(affiliation));
+      return;
+    }
     try {
       if (isSignup) {
-        await createUserWithEmailAndPassword(auth, email.trim(), password);
+        const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        try {
+          await enregistrerProfil(user, affiliation, clubs || []);
+        } catch (error) {
+          console.error("Profil:", error); // le compte existe : le club pourra être indiqué plus tard
+        }
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }
@@ -60,6 +73,7 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      {isSignup && <ChoixClub valeur={affiliation} onChange={setAffiliation} />}
       {message && <p className="text-sm font-semibold text-red-700">{message}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit">{isSignup ? "S'inscrire" : "Se connecter"}</Button>

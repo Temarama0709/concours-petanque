@@ -271,5 +271,32 @@ service cloud.firestore {
       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
       allow write: if false;
     }
+
+    // Clubs proposés à la création de compte : lisibles par tous, gérés par l'admin
+    match /clubs/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['nom', 'ville', 'departement', 'createdAt'])
+        && request.resource.data.nom is string && request.resource.data.nom.size() > 0 && request.resource.data.nom.size() <= 80
+        && request.resource.data.ville is string && request.resource.data.ville.size() <= 60
+        && request.resource.data.departement is string && request.resource.data.departement.matches('^[0-9]{2}[AB0-9]?$');
+      allow delete: if isAdmin();
+    }
+
+    // Profil de chaque compte (club d'affiliation) : modifiable par la personne elle-même
+    match /utilisateurs/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'affilie', 'departement', 'clubId', 'clubNom', 'clubAVerifier', 'updatedAt'])
+        && request.resource.data.email == request.auth.token.get('email', '')
+        && request.resource.data.affilie is bool
+        && request.resource.data.departement is string && request.resource.data.departement.size() <= 3
+        && request.resource.data.clubId is string && request.resource.data.clubId.size() <= 40
+        && request.resource.data.clubNom is string && request.resource.data.clubNom.size() <= 80
+        && request.resource.data.clubAVerifier is bool
+        && (request.resource.data.clubId == '' || exists(chemin('clubs', request.resource.data.clubId)))
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+    }
   }
 }

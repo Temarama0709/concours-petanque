@@ -14,6 +14,8 @@ import EspaceContributeur from "./components/EspaceContributeur.js";
 import GestionContributeurs from "./components/GestionContributeurs.js";
 import AchatCredits, { PAIEMENT_ACTIF } from "./components/AchatCredits.js";
 import EcranTournoi from "./components/tournoi/EcranTournoi.js";
+import MonClub, { useProfil } from "./components/MonClub.js";
+import GestionClubs from "./components/GestionClubs.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
@@ -74,6 +76,7 @@ function ConcoursApp() {
   const [inscriptionOuverte, setInscriptionOuverte] = useState(false);
   const [achatOuvert, setAchatOuvert] = useState(false);
   const [ecranTournoi, setEcranTournoi] = useState(null); // { concours, gestion }
+  const [monClubOuvert, setMonClubOuvert] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -134,6 +137,8 @@ function ConcoursApp() {
       () => setContributeur(null)
     );
   }, [user]);
+
+  const { profil, charge: profilCharge } = useProfil(user);
 
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
   const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
@@ -423,8 +428,13 @@ function ConcoursApp() {
             {isAdmin
               ? " · admin"
               : contributeur && (contributeur.illimite ? " · contributeur" : ` · ${contributeur.credits || 0} crédit${(contributeur.credits || 0) > 1 ? "s" : ""}`)}
+            {" · "}
+            <button type="button" className="underline decoration-jaune underline-offset-2 text-white" onClick={() => setMonClubOuvert(!monClubOuvert)}>
+              {profil?.affilie ? profil.clubNom : profilCharge && !profil ? "Indiquer mon club" : "Mon club"}
+            </button>
           </p>
         )}
+        {user && monClubOuvert && <MonClub user={user} profil={profil} onFermer={() => setMonClubOuvert(false)} />}
         <button
           type="button"
           onClick={() => setShowForm(!showForm)}
@@ -703,7 +713,7 @@ function ConcoursApp() {
             <AfficheConcours concours={selectedConcours} />
             {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && (
               inscriptionOuverte ? (
-                <InscriptionForm concours={selectedConcours} user={user} onTermine={() => setInscriptionOuverte(false)} />
+                <InscriptionForm concours={selectedConcours} user={user} clubParDefaut={profil?.affilie ? profil.clubNom : ""} onTermine={() => setInscriptionOuverte(false)} />
               ) : (
                 <Button className="w-full" onClick={() => setInscriptionOuverte(true)}>S'inscrire à ce concours</Button>
               )
@@ -750,6 +760,8 @@ function AdminPanel({ propositions, concoursList, handleValider, handleSupprimer
   return (
     <section className="pt-4 space-y-4" aria-label="Administration">
       <GestionContributeurs />
+
+      <GestionClubs />
 
       <ImportCalendrier concoursExistants={[...concoursList, ...propositions]} />
 

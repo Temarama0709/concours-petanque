@@ -1,0 +1,43 @@
+// Listes de clubs fournies par l'administrateur, importables en un clic depuis le panneau admin.
+// Ajouter ici la liste de l'Ain (01) quand elle sera disponible.
+export const CLUBS_PAR_DEFAUT = {
+  74: [
+    "ALBY SUR CHERAN PETANQUE",
+    "JP RUMILLY",
+    "JP SEYNOD",
+    "LA VEYROLAINE PETANQUE",
+    "LES CARRES PETANQUE",
+    "SAINT FELIX PETANQUE",
+    "CLUB DE PETANQUE ANNECY",
+    "LOISIRS DU VUACHE",
+    "PETANQUE DE LA SEMINE",
+    "THONES PETANQUE",
+    "USP PETANQUE",
+    "CHEDDE PETANQUE",
+    "CLUSIENNE PETANQUE",
+    "CORNIER PETANQUE",
+    "LE BORNE PETANQUE",
+    "PET. LES LACS DE THYEZ",
+    "PET. ST-GERVAIS LE FAYET",
+    "PETANQUE CLUB ROCHOIS",
+    "PETANQUE CLUSES-SARDAGNE",
+    "PETANQUE MAGLANCHARDE",
+    "SALLANCHES PETANQUE",
+    "SCIONZIER PETANQUE",
+    "UNION PETANQUE MONT-BLANC",
+    "VOUGY AMICALE PETANQUE",
+    "PCJ PETANQUE",
+    "FMR PETANQUE",
+    "CLUB DES AMIS DE SOURIS",
+    "J. PET. ANNEMASSIENNE",
+    "LE SALEVE PETANQUE",
+    "PETANQUE VALLEIRYENNE",
+    "LES ROCAILLES PETANQUE",
+    "PETANQUE DES VOIRONS",
+    "PS GAILLARD",
+    "THONON",
+    "UBE PETANQUE",
+    "BONS OLYMPIC PETANQUE"
+  ],
+  "01": []
+};

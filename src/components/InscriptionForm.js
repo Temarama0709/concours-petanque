@@ -7,10 +7,10 @@ import { EMAIL_VALIDE, joueursParEquipe } from "../lib/formats.js";
 
 // Inscription d'une équipe à un concours. L'organisateur est prévenu par
 // e-mail (fonction notifierInscription côté serveur).
-export default function InscriptionForm({ concours, user, onTermine }) {
+export default function InscriptionForm({ concours, user, clubParDefaut = "", onTermine }) {
   const nb = joueursParEquipe(concours.format);
   const [joueurs, setJoueurs] = useState(Array(nb).fill(""));
-  const [club, setClub] = useState("");
+  const [club, setClub] = useState(clubParDefaut);
   const [telephone, setTelephone] = useState("");
   const [email, setEmail] = useState(user?.email || "");
   const [accord, setAccord] = useState(false);

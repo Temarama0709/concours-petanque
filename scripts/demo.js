@@ -101,6 +101,13 @@ async function remplir() {
     await ecrire(`contacts/${id}`, { email: "orga@test.fr", createdAt: new Date() });
   }
 
+  // Clubs de Haute-Savoie (même liste que le bouton d'import du panneau admin)
+  const source = require("fs").readFileSync(require("path").join(__dirname, "../src/lib/clubsParDefaut.js"), "utf8");
+  const clubs74 = [...source.slice(source.indexOf("74: ["), source.indexOf("]")).matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  for (let i = 0; i < clubs74.length; i++) {
+    await ecrire(`clubs/demo-club-${i + 1}`, { nom: clubs74[i], ville: "", departement: "74", createdAt: new Date() });
+  }
+
   const equipes = [
     [["Jean Dupont", "Marc Petit"], "Annecy"], [["Ali Benali", "Luc Girard"], "Annecy"],
     [["Paul Morel", "René Faure"], "Cluses"], [["Hugo Roux", "Tom Blanc"], "Cluses"],
