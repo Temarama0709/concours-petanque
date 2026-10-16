@@ -90,12 +90,13 @@ async function remplir() {
   };
   const concours = [
     ["demo1", "Concours de démo (à gérer)", 0, "Boulodrome des Fins", "Annecy", "74000", "ouvert", "Doublette Senior", 10, orga],
-    ["demo2", "Grand prix d'automne", 7, "Parc des sports", "Cluses", "74300", "officiel", "Triplette Senior", 15, null],
+    ["demo2", "Grand prix d'automne", 7, "Parc des sports", "Cluses", "74300", "officiel", "Triplette Senior", 15, null, "demo-club-13", "CLUSIENNE PETANQUE"],
     ["demo3", "Concours des vétérans", 14, "Place Avet", "Thônes", "74230", "ouvert", "Doublette Veteran", 8, null]
   ];
-  for (const [id, title, j, lieu, ville, cp, type, format, prix, auteur] of concours) {
+  for (const [id, title, j, lieu, ville, cp, type, format, prix, auteur, clubId, clubNom] of concours) {
     await ecrire(`concours/${id}`, {
       title, date: dans(j), lieu, ville, cp, type, format, prix, valide: true, inscriptions: true,
+      ...(clubNom ? { clubId, clubNom } : {}),
       source: auteur ? "contributeur" : "admin", ...(auteur ? { auteur } : {}), createdAt: new Date()
     });
     await ecrire(`contacts/${id}`, { email: "orga@test.fr", createdAt: new Date() });
@@ -107,6 +108,9 @@ async function remplir() {
   for (let i = 0; i < clubs74.length; i++) {
     await ecrire(`clubs/demo-club-${i + 1}`, { nom: clubs74[i], ville: "", departement: "74", createdAt: new Date() });
   }
+
+  // joueur1 est licencié à la Clusienne : il peut filtrer « Mon club »
+  await ecrire(`utilisateurs/${joueurs[0]}`, { email: "joueur1@test.fr", affilie: true, departement: "74", clubId: "demo-club-13", clubNom: "CLUSIENNE PETANQUE", clubAVerifier: false, updatedAt: new Date() });
 
   const equipes = [
     [["Jean Dupont", "Marc Petit"], "Annecy"], [["Ali Benali", "Luc Girard"], "Annecy"],
@@ -139,7 +143,7 @@ async function remplir() {
   console.log(`
 ✅ Mode démo prêt. Comptes de test (mot de passe pour tous : ${MOT_DE_PASSE}) :
    orga@test.fr         organisateur du « Concours de démo », 5 crédits
-   joueur1@test.fr … joueur4@test.fr   joueurs inscrits au concours de démo
+   joueur1@test.fr … joueur4@test.fr   joueurs inscrits au concours de démo (joueur1 : club CLUSIENNE PETANQUE)
    nouveau@test.fr      compte sans droits (pour tester la demande de contributeur)
    admin@test.fr        administrateur
    Pour jouer à plusieurs : ouvrez une fenêtre de navigation privée par compte.

@@ -185,6 +185,7 @@ export function analyserTableau(rows, { departement = "" } = {}) {
       cp,
       cpApproximatif: !String(val(r, "cp") ?? "").replace(/\D/g, "") && !villeAvecCp,
       type: "officiel",
+      club: club.slice(0, 80),
       format: formatConcours || "Autre",
       prix: lirePrix(val(r, "prix"))
     });

@@ -71,9 +71,11 @@ export default function ImportCalendrier({ concoursExistants, onTermine }) {
       // Firestore limite un lot à 500 écritures
       for (let i = 0; i < aImporter.length; i += 400) {
         const batch = writeBatch(db);
-        aImporter.slice(i, i + 400).forEach(({ title, date, lieu, type, format, prix, ville, cp }) => {
+        aImporter.slice(i, i + 400).forEach(({ title, date, lieu, type, format, prix, ville, cp, club }) => {
           batch.set(doc(collection(db, "concours")), {
             title, date, lieu, type, format, prix, ville, cp,
+            clubId: "",
+            clubNom: club || "",
             valide: true,
             source: "import",
             createdAt: serverTimestamp()

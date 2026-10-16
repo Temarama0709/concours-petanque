@@ -27,7 +27,9 @@ service cloud.firestore {
 
     // Formats : doit rester identique à src/lib/formats.js
     function isValidConcours(d) {
-      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'valide', 'source', 'auteur', 'affiche', 'inscriptions', 'createdAt'])
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'clubId', 'clubNom', 'valide', 'source', 'auteur', 'affiche', 'inscriptions', 'createdAt'])
+        && d.get('clubId', '') is string && d.get('clubId', '').size() <= 40
+        && d.get('clubNom', '') is string && d.get('clubNom', '').size() <= 80
         && d.get('affiche', false) is bool
         && d.get('inscriptions', false) is bool
         && d.title is string && d.title.size() > 0 && d.title.size() <= 120

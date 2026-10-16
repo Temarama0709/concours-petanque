@@ -15,6 +15,8 @@ import GestionContributeurs from "./components/GestionContributeurs.js";
 import AchatCredits, { PAIEMENT_ACTIF } from "./components/AchatCredits.js";
 import EcranTournoi from "./components/tournoi/EcranTournoi.js";
 import MonClub, { useProfil } from "./components/MonClub.js";
+import ChoixClub from "./components/ChoixClub.js";
+import { AFFILIATION_VIDE, erreurAffiliation, useClubs } from "./lib/clubs.js";
 import GestionClubs from "./components/GestionClubs.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
@@ -58,6 +60,11 @@ function BadgeType({ type }) {
 }
 
 const aUnPrix = (c) => c.prix != null && c.prix !== "";
+
+const normaliser = (s = "") => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+// Concours organisé par le club de la personne (même club de la liste, ou même nom)
+const estDuClub = (c, profil) =>
+  (profil.clubId && c.clubId === profil.clubId) || (!!c.clubNom && normaliser(c.clubNom) === normaliser(profil.clubNom));
 const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "", email: "" };
 
 const byDate = (a, b) => (a.date || "").localeCompare(b.date || "");
@@ -77,6 +84,9 @@ function ConcoursApp() {
   const [achatOuvert, setAchatOuvert] = useState(false);
   const [ecranTournoi, setEcranTournoi] = useState(null); // { concours, gestion }
   const [monClubOuvert, setMonClubOuvert] = useState(false);
+  const [clubOrga, setClubOrga] = useState({ ...AFFILIATION_VIDE, affilie: true });
+  const [filtreMonClub, setFiltreMonClub] = useState(false);
+  const clubs = useClubs();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
@@ -143,6 +153,15 @@ function ConcoursApp() {
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
   const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
 
+  // Le club du compte sert par défaut de club organisateur
+  useEffect(() => {
+    if (showForm && profil?.affilie) {
+      setClubOrga((c) =>
+        c.clubId ? c : { affilie: true, departement: profil.departement || AFFILIATION_VIDE.departement, clubId: profil.clubId || "autre", clubAutre: profil.clubId ? "" : profil.clubNom || "" }
+      );
+    }
+  }, [showForm, profil]);
+
   // L'e-mail du compte sert par défaut d'e-mail organisateur
   useEffect(() => {
     if (showForm && user?.email) setFormData((f) => (f.email ? f : { ...f, email: user.email }));
@@ -190,6 +209,7 @@ function ConcoursApp() {
       }
       if (filtre !== "tous" && c.type !== filtre) return false;
       if (departementFiltre.length > 0 && !departementFiltre.some((dep) => (c.cp || "").startsWith(dep))) return false;
+      if (filtreMonClub && profil?.affilie && !estDuClub(c, profil)) return false;
       if (terme) {
         const texte = `${c.title} ${c.lieu} ${c.ville}`.toLowerCase();
         // "13" trouve tout le département, "13400" le code postal exact
@@ -197,7 +217,7 @@ function ConcoursApp() {
       }
       return true;
     });
-  }, [concoursList, selectedDate, afficherPasses, filtre, departementFiltre, recherche]);
+  }, [concoursList, selectedDate, afficherPasses, filtre, departementFiltre, recherche, filtreMonClub, profil]);
 
   const updateForm = (champ, valeur) => setFormData((f) => ({ ...f, [champ]: valeur }));
 
@@ -293,6 +313,14 @@ function ConcoursApp() {
       setFormError("Le code postal doit contenir 5 chiffres.");
       return;
     }
+    // Un concours officiel est organisé par un club
+    const officiel = data.type === "officiel";
+    if (officiel && erreurAffiliation(clubOrga)) {
+      setFormError(clubOrga.clubId ? "Indiquez le nom du club organisateur." : "Choisissez le club organisateur.");
+      return;
+    }
+    const clubChoisi = officiel && clubOrga.clubId !== "autre" ? (clubs || []).find((c) => c.id === clubOrga.clubId) : null;
+    const club = officiel ? { clubId: clubChoisi ? clubChoisi.id : "", clubNom: clubChoisi ? clubChoisi.nom : clubOrga.clubAutre.trim() } : {};
     const prix = Number(data.prix.replace(",", "."));
     if (!Number.isFinite(prix) || prix < 0 || prix > 10000) {
       setFormError("Le tarif doit être un nombre positif.");
@@ -323,6 +351,7 @@ function ConcoursApp() {
       const ref = doc(collection(db, "concours"));
       batch.set(ref, {
         ...data,
+        ...club,
         prix,
         // Admins et contributeurs publient directement
         valide: true,
@@ -558,6 +587,9 @@ function ConcoursApp() {
               <option value="officiel">Officiel</option>
               <option value="ouvert">Ouvert à tous</option>
             </select>
+            {formData.type === "officiel" && (
+              <ChoixClub valeur={clubOrga} onChange={setClubOrga} question={false} legende="Club organisateur" />
+            )}
             {formError && <p className="text-red-700 text-sm font-semibold">{formError}</p>}
             <Button type="submit" disabled={sending} className="w-full">{sending ? "Envoi…" : "Envoyer"}</Button>
           </form>
@@ -595,10 +627,23 @@ function ConcoursApp() {
             {showMap ? <IconList /> : <IconMap />}
           </button>
         </div>
-        <MultiSelectDepartement
-          departementFiltre={departementFiltre}
-          setDepartementFiltre={setDepartementFiltre}
-        />
+        <div className="flex flex-wrap gap-2">
+          <MultiSelectDepartement
+            departementFiltre={departementFiltre}
+            setDepartementFiltre={setDepartementFiltre}
+          />
+          {profil?.affilie && (
+            <button
+              type="button"
+              aria-pressed={filtreMonClub}
+              onClick={() => setFiltreMonClub(!filtreMonClub)}
+              className={`h-11 px-4 rounded-[10px] text-sm font-bold max-w-full truncate ${filtreMonClub ? "bg-navy text-white" : "bg-fond text-navy hover:bg-bord"}`}
+              title={`Concours organisés par ${profil.clubNom}`}
+            >
+              Mon club · {profil.clubNom}
+            </button>
+          )}
+        </div>
 
         <CalendarWithConcours
           selectedDate={selectedDate}
@@ -643,7 +688,7 @@ function ConcoursApp() {
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <p className="font-bold truncate">{concours.ville}</p>
                     <p className="text-[13px] text-ardoise truncate">
-                      {[bloc.jour, FORMAT_LABELS[concours.format] || concours.format, concours.lieu].filter(Boolean).join(" · ")}
+                      {[bloc.jour, FORMAT_LABELS[concours.format] || concours.format, concours.clubNom || concours.lieu].filter(Boolean).join(" · ")}
                     </p>
                     <BadgeType type={concours.type} />
                   </div>
@@ -705,6 +750,9 @@ function ConcoursApp() {
               <li className="flex gap-3"><IconPin className="shrink-0 text-ardoise" /><span>{selectedConcours.lieu}, {selectedConcours.cp} {selectedConcours.ville}</span></li>
               {selectedConcours.format && (
                 <li className="flex gap-3"><IconTag className="shrink-0 text-ardoise" /><span>{FORMAT_LABELS[selectedConcours.format] || selectedConcours.format}</span></li>
+              )}
+              {selectedConcours.clubNom && (
+                <li className="flex gap-3"><IconBoule className="shrink-0 text-ardoise" /><span>Organisé par <b>{selectedConcours.clubNom}</b></span></li>
               )}
               {aUnPrix(selectedConcours) && (
                 <li className="flex gap-3"><IconEuro className="shrink-0 text-ardoise" /><span>{selectedConcours.prix} € par équipe</span></li>

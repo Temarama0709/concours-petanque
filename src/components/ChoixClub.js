@@ -5,14 +5,16 @@ import { DEPARTEMENTS_CLUBS, useClubs } from "../lib/clubs.js";
 const CHAMP = "w-full h-11 px-3 bg-fond text-navy rounded-[10px] border-2 border-transparent focus:outline-none focus:border-jaune";
 
 // Affilié à un club ou non ; si oui : département puis club (ou saisie libre)
-export default function ChoixClub({ valeur, onChange }) {
+// question=false : uniquement département + club (ex. club organisateur d'un concours)
+export default function ChoixClub({ valeur, onChange, question = true, legende = "Êtes-vous licencié dans un club ?" }) {
   const clubs = useClubs();
   const maj = (champs) => onChange({ ...valeur, ...champs });
   const duDepartement = (clubs || []).filter((c) => c.departement === valeur.departement);
 
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-bold mb-1">Êtes-vous licencié dans un club ?</legend>
+      <legend className="text-sm font-bold mb-1">{legende}</legend>
+      {question && (
       <div className="grid grid-cols-2 gap-2">
         {[
           [true, "Oui, affilié à un club"],
@@ -29,8 +31,9 @@ export default function ChoixClub({ valeur, onChange }) {
           </label>
         ))}
       </div>
+      )}
 
-      {valeur.affilie && (
+      {(valeur.affilie || !question) && (
         <div className="space-y-2">
           <select
             aria-label="Département du club"
