@@ -34,6 +34,7 @@ import {
   updateDoc,
   doc,
   writeBatch,
+  setDoc,
   getDocs,
   query,
   where,
@@ -149,6 +150,20 @@ function ConcoursApp() {
   }, [user]);
 
   const { profil, charge: profilCharge } = useProfil(user);
+
+  // Profil minimal créé à la première connexion (le compte apparaît alors dans la liste des utilisateurs de l'admin)
+  useEffect(() => {
+    if (!user || !profilCharge || profil) return;
+    setDoc(doc(db, "utilisateurs", user.uid), {
+      email: user.email || "",
+      affilie: false,
+      departement: "",
+      clubId: "",
+      clubNom: "",
+      clubAVerifier: false,
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch((e) => console.error("Profil:", e));
+  }, [user, profil, profilCharge]);
 
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
   const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
@@ -459,7 +474,7 @@ function ConcoursApp() {
               : contributeur && (contributeur.illimite ? " · contributeur" : ` · ${contributeur.credits || 0} crédit${(contributeur.credits || 0) > 1 ? "s" : ""}`)}
             {" · "}
             <button type="button" className="underline decoration-jaune underline-offset-2 text-white" onClick={() => setMonClubOuvert(!monClubOuvert)}>
-              {profil?.affilie ? profil.clubNom : profilCharge && !profil ? "Indiquer mon club" : "Mon club"}
+              {profil?.affilie ? profil.clubNom : "Indiquer mon club"}
             </button>
           </p>
         )}
