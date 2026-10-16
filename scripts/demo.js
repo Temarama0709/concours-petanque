@@ -90,7 +90,7 @@ async function remplir() {
   };
   const concours = [
     ["demo1", "Concours de démo (à gérer)", 0, "Boulodrome des Fins", "Annecy", "74000", "ouvert", "Doublette Senior", 10, orga],
-    ["demo2", "Grand prix d'automne", 7, "Parc des sports", "Cluses", "74300", "officiel", "Triplette Senior", 15, null, "demo-club-13", "CLUSIENNE PETANQUE"],
+    ["demo2", "Grand prix d'automne", 7, "Parc des sports", "Cluses", "74300", "officiel", "Triplette Senior", 15, null, "defaut-74-13", "CLUSIENNE PETANQUE"],
     ["demo3", "Concours des vétérans", 14, "Place Avet", "Thônes", "74230", "ouvert", "Doublette Veteran", 8, null]
   ];
   for (const [id, title, j, lieu, ville, cp, type, format, prix, auteur, clubId, clubNom] of concours) {
@@ -102,15 +102,8 @@ async function remplir() {
     await ecrire(`contacts/${id}`, { email: "orga@test.fr", createdAt: new Date() });
   }
 
-  // Clubs de Haute-Savoie (même liste que le bouton d'import du panneau admin)
-  const source = require("fs").readFileSync(require("path").join(__dirname, "../src/lib/clubsParDefaut.js"), "utf8");
-  const clubs74 = [...source.slice(source.indexOf("74: ["), source.indexOf("]")).matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  for (let i = 0; i < clubs74.length; i++) {
-    await ecrire(`clubs/demo-club-${i + 1}`, { nom: clubs74[i], ville: "", departement: "74", createdAt: new Date() });
-  }
-
   // joueur1 est licencié à la Clusienne : il peut filtrer « Mon club »
-  await ecrire(`utilisateurs/${joueurs[0]}`, { email: "joueur1@test.fr", affilie: true, departement: "74", clubId: "demo-club-13", clubNom: "CLUSIENNE PETANQUE", clubAVerifier: false, updatedAt: new Date() });
+  await ecrire(`utilisateurs/${joueurs[0]}`, { email: "joueur1@test.fr", affilie: true, departement: "74", clubId: "defaut-74-13", clubNom: "CLUSIENNE PETANQUE", clubAVerifier: false, updatedAt: new Date() });
 
   const equipes = [
     [["Jean Dupont", "Marc Petit"], "Annecy"], [["Ali Benali", "Luc Girard"], "Annecy"],

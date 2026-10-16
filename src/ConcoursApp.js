@@ -34,7 +34,7 @@ import {
   updateDoc,
   doc,
   writeBatch,
-  setDoc,
+  runTransaction,
   getDocs,
   query,
   where,
@@ -154,15 +154,20 @@ function ConcoursApp() {
   // Profil minimal créé à la première connexion (le compte apparaît alors dans la liste des utilisateurs de l'admin)
   useEffect(() => {
     if (!user || !profilCharge || profil) return;
-    setDoc(doc(db, "utilisateurs", user.uid), {
-      email: user.email || "",
-      affilie: false,
-      departement: "",
-      clubId: "",
-      clubNom: "",
-      clubAVerifier: false,
-      updatedAt: serverTimestamp()
-    }, { merge: true }).catch((e) => console.error("Profil:", e));
+    // Transaction : n'écrit rien si un profil existe déjà (ex. club choisi à la création du compte, au même moment)
+    const ref = doc(db, "utilisateurs", user.uid);
+    runTransaction(db, async (tx) => {
+      if ((await tx.get(ref)).exists()) return;
+      tx.set(ref, {
+        email: user.email || "",
+        affilie: false,
+        departement: "",
+        clubId: "",
+        clubNom: "",
+        clubAVerifier: false,
+        updatedAt: serverTimestamp()
+      });
+    }).catch((e) => console.error("Profil:", e));
   }, [user, profil, profilCharge]);
 
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
