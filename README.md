@@ -64,6 +64,21 @@ lisible seulement par les admins) et la fonction `notifierInscription`
 l'équipe si elle a donné son e-mail. L'e-mail de l'organisateur est rangé à part
 (collection `contacts`) et n'est jamais lisible par le public.
 
+**Validation et limite d'équipes.** Une inscription du public arrive « en attente de
+validation » : l'organisateur (ou un admin) la valide ou la refuse dans la fiche du
+concours (« À valider ») ou dans « Gérer le concours ». L'inscrit reçoit une notification
+dans l'application (la cloche) et, si les e-mails sont activés, un e-mail
+(`notifierValidation`). Seules les équipes validées peuvent être pointées pour le tirage.
+L'organisateur peut fixer un nombre maximum d'équipes (ex. 64) : la collection publique
+`compteurs` tient le nombre d'équipes inscrites, et les règles Firestore refusent toute
+inscription au-delà de la limite.
+
+**Organisateurs.** À la publication, la case « Je suis l'organisateur de ce concours »
+peut être décochée : le concours est alors publié pour information, sans inscriptions en
+ligne. Un admin peut ajouter des co-organisateurs à n'importe quel concours (fiche du
+concours, partie « Organisation », par l'e-mail de leur compte) : ils gèrent alors les
+inscriptions, la validation et le tirage.
+
 Pour activer l'envoi (une seule fois) :
 1. Passer le projet Firebase à l'offre Blaze (nécessaire pour les Cloud Functions).
 2. Créer un compte chez un service d'envoi d'e-mails (ex. Brevo, gratuit jusqu'à 300 e-mails/jour)

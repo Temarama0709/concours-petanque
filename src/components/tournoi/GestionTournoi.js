@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../../utils/firebase.js";
 import { Button } from "../ui/button.js";
 import { Input } from "../ui/input.js";
@@ -11,6 +11,8 @@ import {
 import { attribuerTerrains, creerParties, enregistrerTirage, supprimerTournoi } from "../../lib/tournoiFirestore.js";
 import { EMAIL_VALIDE, joueursParEquipe } from "../../lib/formats.js";
 import { todayKey } from "../../lib/dates.js";
+import { STATUTS_INSCRIPTION, ajouterEquipeOrganisateur, statutDe, supprimerInscription } from "../../lib/inscriptions.js";
+import { BoutonsValidation } from "../InscriptionsAdmin.js";
 
 const titre = "text-[15px] font-black uppercase tracking-wider";
 
@@ -37,15 +39,17 @@ function PreparationTirage({ concours }) {
     );
   }, [concours.id]);
 
-  const presentes = (inscriptions || []).filter((i) => i.presente);
+  // Seules les inscriptions validées peuvent être pointées et participer au tirage
+  const presentes = (inscriptions || []).filter((i) => i.presente && statutDe(i) === "validee");
+  const validees = (inscriptions || []).filter((i) => statutDe(i) === "validee");
   const poulesPossibles = !!repartitionPoules(presentes.length);
   const formatEffectif = format === "poules" && !poulesPossibles ? "elimination" : format;
 
   const basculer = (i) => updateDoc(doc(db, "inscriptions", i.id), { presente: !i.presente });
-  const toutPointer = () => (inscriptions || []).filter((i) => !i.presente).forEach(basculer);
+  const toutPointer = () => validees.filter((i) => !i.presente).forEach(basculer);
 
   const retirer = (i) => {
-    if (window.confirm(`Retirer l'équipe « ${i.joueurs.join(" / ")} » ?`)) deleteDoc(doc(db, "inscriptions", i.id));
+    if (window.confirm(`Retirer l'équipe « ${i.joueurs.join(" / ")} » ?`)) supprimerInscription(i);
   };
 
   const lancer = async () => {
@@ -79,30 +83,36 @@ function PreparationTirage({ concours }) {
     <div className="space-y-6">
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <h3 className={titre}>Équipes ({presentes.length}/{inscriptions.length} présentes)</h3>
-          {inscriptions.some((i) => !i.presente) && <Button size="sm" variant="ghost" onClick={toutPointer}>Tout cocher</Button>}
+          <h3 className={titre}>Équipes ({presentes.length}/{validees.length} présentes)</h3>
+          {validees.some((i) => !i.presente) && <Button size="sm" variant="ghost" onClick={toutPointer}>Tout cocher</Button>}
         </div>
         <p className="text-sm text-ardoise">
           Le jour du concours, cochez les équipes présentes : seules elles participent au tirage.
         </p>
         {inscriptions.length === 0 && <p className="text-sm text-ardoise">Aucune inscription pour l'instant.</p>}
         <ul className="divide-y-[1.5px] divide-bord border-y-[1.5px] border-bord">
-          {inscriptions.map((i) => (
-            <li key={i.id} className="flex items-start gap-2">
-              <label className="flex-1 min-w-0 flex items-start gap-3 py-2 cursor-pointer">
-                <input type="checkbox" className="mt-1 w-5 h-5 accent-navy" checked={!!i.presente} onChange={() => basculer(i)} />
-                <span className="min-w-0">
+          {inscriptions.map((i) => {
+            const statut = statutDe(i);
+            const [libelle, style] = STATUTS_INSCRIPTION[statut];
+            return (
+            <li key={i.id} className={`flex items-start gap-2 ${statut === "refusee" ? "opacity-60" : ""}`}>
+              <label className={`flex-1 min-w-0 flex items-start gap-3 py-2 ${statut === "validee" ? "cursor-pointer" : ""}`}>
+                <input type="checkbox" className="mt-1 w-5 h-5 accent-navy" disabled={statut !== "validee"} checked={!!i.presente && statut === "validee"} onChange={() => basculer(i)} />
+                <span className="min-w-0 space-y-1">
                   <span className="block font-bold">{i.joueurs.join(" / ")}</span>
                   <span className="block text-sm text-ardoise">
                     {[i.club, i.telephone, i.email, i.surPlace && "ajoutée par l'organisateur", i.uid && "a l'application"].filter(Boolean).join(" · ")}
                   </span>
+                  {statut !== "validee" && <span className={`inline-block text-xs font-bold px-1.5 py-0.5 rounded ${style}`}>{libelle}</span>}
+                  {statut !== "validee" && <BoutonsValidation ins={i} concours={concours} />}
                 </span>
               </label>
               <Button size="sm" variant="ghost" className="mt-1 shrink-0" aria-label={`Retirer ${i.joueurs.join(" / ")}`} onClick={() => retirer(i)}>
                 Retirer
               </Button>
             </li>
-          ))}
+            );
+          })}
         </ul>
         <AjoutEquipe concours={concours} />
       </section>
@@ -234,16 +244,13 @@ function AjoutEquipe({ concours }) {
     const saisie = form;
     setForm(vide);
     try {
-      await addDoc(collection(db, "inscriptions"), {
-        concoursId: concours.id,
+      await ajouterEquipeOrganisateur(concours.id, {
         joueurs,
         club: saisie.club.trim(),
         telephone,
         email,
         uid: null,
-        surPlace: true,
-        presente,
-        createdAt: serverTimestamp()
+        presente
       });
     } catch (error) {
       console.error("Ajout d'équipe:", error);

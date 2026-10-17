@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../utils/firebase.js";
+import { ConcoursComplet, inscrire } from "../lib/inscriptions.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { EMAIL_VALIDE, joueursParEquipe } from "../lib/formats.js";
@@ -30,20 +29,18 @@ export default function InscriptionForm({ concours, user, clubParDefaut = "", on
     setErreur("");
     setEnvoi(true);
     try {
-      await addDoc(collection(db, "inscriptions"), {
-        concoursId: concours.id,
+      await inscrire(concours, {
         joueurs: noms,
         club: club.trim(),
         telephone: tel,
         email: email.trim(),
         // Compte de la personne qui inscrit l'équipe : lui permet de saisir les scores
-        uid: user?.uid || null,
-        createdAt: serverTimestamp()
+        uid: user?.uid || null
       });
       setEnvoye(true);
     } catch (error) {
       console.error("Inscription:", error);
-      setErreur("L'inscription a échoué. Réessayez dans un instant.");
+      setErreur(error instanceof ConcoursComplet ? "Désolé, le concours est complet." : "L'inscription a échoué. Réessayez dans un instant.");
     } finally {
       setEnvoi(false);
     }
@@ -52,10 +49,12 @@ export default function InscriptionForm({ concours, user, clubParDefaut = "", on
   if (envoye) {
     return (
       <div className="rounded-xl bg-jaune-clair p-4 space-y-2" role="status">
-        <p className="font-black">Inscription envoyée !</p>
+        <p className="font-black">Inscription envoyée, en attente de validation</p>
         <p className="text-sm">
-          L'organisateur a été prévenu{email.trim() ? " et une confirmation vous a été envoyée par e-mail" : ""}.
-          {user ? "Le jour du concours, vous pourrez saisir vos scores depuis « Suivre le concours »." : ""}
+          Votre inscription doit être <b>validée par l'organisateur</b> avant d'être définitive.
+          {user
+            ? " Vous recevrez une notification dans l'application (la cloche en haut) dès qu'elle sera validée."
+            : ` L'organisateur vous contactera${telephone.trim() ? ` au ${telephone.trim()}` : email.trim() ? " par e-mail" : ""}.`}
         </p>
         <Button variant="navy" size="sm" onClick={onTermine}>Fermer</Button>
       </div>
@@ -65,6 +64,9 @@ export default function InscriptionForm({ concours, user, clubParDefaut = "", on
   return (
     <form onSubmit={envoyer} className="rounded-xl border-2 border-bord p-4 space-y-3">
       <h3 className="text-[15px] font-black uppercase tracking-wider">S'inscrire</h3>
+      <p className="text-xs bg-fond rounded-[10px] px-3 py-2">
+        Chaque inscription est <b>validée par l'organisateur</b> : vous serez prévenu dès qu'elle l'est.
+      </p>
       {joueurs.map((nom, i) => (
         <Input
           key={i}

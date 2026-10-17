@@ -96,6 +96,7 @@ async function remplir() {
   for (const [id, title, j, lieu, ville, cp, type, format, prix, auteur, clubId, clubNom] of concours) {
     await ecrire(`concours/${id}`, {
       title, date: dans(j), lieu, ville, cp, type, format, prix, valide: true, inscriptions: true,
+      ...(id === "demo1" ? { maxEquipes: 16 } : {}),
       ...(clubNom ? { clubId, clubNom } : {}),
       source: auteur ? "contributeur" : "admin", ...(auteur ? { auteur } : {}), createdAt: new Date()
     });
@@ -115,9 +116,11 @@ async function remplir() {
     const [noms, club] = equipes[i];
     await ecrire(`inscriptions/demo-ins${i + 1}`, {
       concoursId: "demo1", joueurs: noms, club, telephone: "06 00 00 00 0" + i, email: "",
-      uid: i < 4 ? joueurs[i] : null, createdAt: new Date(Date.now() + i)
+      uid: i < 4 ? joueurs[i] : null, statut: i === 3 ? "en_attente" : "validee", createdAt: new Date(Date.now() + i)
     });
   }
+  // joueur4 attend la validation de l'organisateur ; le concours est limité à 16 équipes
+  await ecrire("compteurs/demo1", { inscrites: equipes.length });
 }
 
 (async () => {
@@ -136,7 +139,7 @@ async function remplir() {
   console.log(`
 ✅ Mode démo prêt. Comptes de test (mot de passe pour tous : ${MOT_DE_PASSE}) :
    orga@test.fr         organisateur du « Concours de démo », 5 crédits
-   joueur1@test.fr … joueur4@test.fr   joueurs inscrits au concours de démo (joueur1 : club CLUSIENNE PETANQUE)
+   joueur1@test.fr … joueur4@test.fr   joueurs inscrits au concours de démo (joueur1 : club CLUSIENNE PETANQUE ; joueur4 : en attente de validation)
    nouveau@test.fr      compte sans droits (pour tester la demande de contributeur)
    admin@test.fr        administrateur
    Pour jouer à plusieurs : ouvrez une fenêtre de navigation privée par compte.

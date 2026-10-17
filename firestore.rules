@@ -19,15 +19,22 @@ service cloud.firestore {
       return request.auth != null && exists(chemin('contributeurs', request.auth.uid));
     }
 
-    // Auteur d'un concours (contributeur qui l'a publié)
+    // Organisateur d'un concours : son auteur s'il l'a publié en tant qu'organisateur
+    // (et non « pour information »), ou un co-organisateur ajouté par l'admin (liste « organisateurs »)
     function estAuteur(concoursId) {
+      let c = get(chemin('concours', concoursId)).data;
       return request.auth != null
-        && get(chemin('concours', concoursId)).data.get('auteur', '') == request.auth.uid;
+        && ((c.get('auteur', '') == request.auth.uid && c.get('parOrganisateur', true) == true)
+            || request.auth.uid in c.get('organisateurs', []));
     }
 
     // Formats : doit rester identique à src/lib/formats.js
     function isValidConcours(d) {
-      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'clubId', 'clubNom', 'valide', 'source', 'auteur', 'affiche', 'inscriptions', 'createdAt'])
+      return d.keys().hasOnly(['title', 'date', 'lieu', 'type', 'format', 'prix', 'ville', 'cp', 'clubId', 'clubNom', 'valide', 'source', 'auteur', 'parOrganisateur', 'organisateurs', 'maxEquipes', 'affiche', 'inscriptions', 'createdAt'])
+        && d.get('parOrganisateur', true) is bool
+        && (d.get('parOrganisateur', true) == true || d.get('inscriptions', false) == false || d.get('organisateurs', []).size() > 0)
+        && d.get('organisateurs', []) is list && d.get('organisateurs', []).size() <= 10
+        && d.get('maxEquipes', 0) is int && d.get('maxEquipes', 0) >= 0 && d.get('maxEquipes', 0) <= 1024
         && d.get('clubId', '') is string && d.get('clubId', '').size() <= 40
         && d.get('clubNom', '') is string && d.get('clubNom', '').size() <= 80
         && d.get('affiche', false) is bool
@@ -92,7 +99,13 @@ service cloud.firestore {
         || (estContributeur()
             && isValidConcoursContributeur(request.resource.data)
             && paieLaPublication(id));
-      allow update: if isAdmin();
+      // L'admin modifie tout ; un organisateur peut changer la limite d'équipes et ouvrir les inscriptions
+      allow update: if isAdmin()
+        || (estAuteur(id)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['maxEquipes', 'inscriptions'])
+            && request.resource.data.get('maxEquipes', 0) is int
+            && request.resource.data.get('maxEquipes', 0) >= 0 && request.resource.data.get('maxEquipes', 0) <= 1024
+            && request.resource.data.get('inscriptions', false) is bool);
       // Un contributeur peut supprimer ses propres concours.
       allow delete: if isAdmin()
         || (request.auth != null && resource.data.get('auteur', '') == request.auth.uid);
@@ -164,8 +177,8 @@ service cloud.firestore {
     match /contacts/{id} {
       allow read: if isAdmin() || estAuteur(id);
       allow create: if isValidContact(request.resource.data)
-        && (isAdmin() || creeSonConcours(id));
-      allow update: if isAdmin() && isValidContact(request.resource.data);
+        && (isAdmin() || creeSonConcours(id) || estAuteur(id));
+      allow update: if (isAdmin() || estAuteur(id)) && isValidContact(request.resource.data);
       allow delete: if isAdmin() || estAuteur(id);
     }
 
@@ -179,7 +192,8 @@ service cloud.firestore {
       return e is string && e.size() <= 200 && e.matches('^[^@\\s]+@[^@\\s]+[.][^@\\s]+$');
     }
     function isValidInscription(d) {
-      return d.keys().hasOnly(['concoursId', 'joueurs', 'club', 'telephone', 'email', 'uid', 'surPlace', 'presente', 'createdAt'])
+      return d.keys().hasOnly(['concoursId', 'joueurs', 'club', 'telephone', 'email', 'uid', 'surPlace', 'presente', 'statut', 'createdAt'])
+        && d.get('statut', 'validee') in ['en_attente', 'validee', 'refusee']
         && d.concoursId is string
         && d.joueurs is list && d.joueurs.size() >= 1 && d.joueurs.size() <= 4
         && d.joueurs[0] is string && d.joueurs[0].size() > 0 && d.joueurs[0].size() <= 80
@@ -188,14 +202,21 @@ service cloud.firestore {
         && d.email is string && (d.email == '' || emailValide(d.email))
         && d.createdAt == request.time;
     }
-    function inscriptionPublique(d) {
+    // Inscription par le public : en attente de validation, comptée dans le même envoi,
+    // et refusée si le concours est complet
+    function inscriptionPublique(d, id) {
+      let c = get(chemin('concours', d.concoursId)).data;
+      let compteur = getAfter(chemin('compteurs', d.concoursId)).data;
       return isValidInscription(d)
         && (d.telephone != '' || d.email != '')
         && d.get('uid', null) == (request.auth == null ? null : request.auth.uid)
         && d.get('surPlace', false) == false
         && !('presente' in d)
-        && get(chemin('concours', d.concoursId)).data.valide == true
-        && get(chemin('concours', d.concoursId)).data.get('inscriptions', false) == true;
+        && d.statut == 'en_attente'
+        && c.valide == true
+        && c.get('inscriptions', false) == true
+        && compteur.dernier == id
+        && (c.get('maxEquipes', 0) == 0 || compteur.inscrites <= c.get('maxEquipes', 0));
     }
     function inscriptionSurPlace(d) {
       return isValidInscription(d)
@@ -206,14 +227,43 @@ service cloud.firestore {
     }
 
     match /inscriptions/{id} {
-      allow read: if isAdmin() || estAuteur(resource.data.concoursId);
-      allow create: if inscriptionPublique(request.resource.data) || inscriptionSurPlace(request.resource.data);
-      // L'organisateur pointe les équipes présentes
+      // L'inscrit voit ses propres inscriptions (et leur statut)
+      allow read: if isAdmin() || estAuteur(resource.data.concoursId)
+        || (request.auth != null && resource.data.get('uid', null) == request.auth.uid);
+      allow create: if inscriptionPublique(request.resource.data, id) || inscriptionSurPlace(request.resource.data);
+      // L'organisateur valide ou refuse les inscriptions, et pointe les équipes présentes
       allow update: if isAdmin()
         || (estAuteur(resource.data.concoursId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presente'])
-            && request.resource.data.presente is bool);
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presente', 'statut'])
+            && request.resource.data.get('presente', false) is bool
+            && request.resource.data.get('statut', 'validee') in ['en_attente', 'validee', 'refusee']);
       allow delete: if isAdmin() || estAuteur(resource.data.concoursId);
+    }
+
+    // Nombre d'équipes inscrites par concours (public) : +1 à chaque inscription du public,
+    // dans le même envoi que l'inscription ; l'organisateur peut le corriger
+    match /compteurs/{concoursId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || estAuteur(concoursId)
+        || (request.resource.data.keys().hasOnly(['inscrites', 'dernier'])
+            && request.resource.data.inscrites == (resource == null ? 0 : resource.data.inscrites) + 1
+            && !exists(chemin('inscriptions', request.resource.data.dernier))
+            && getAfter(chemin('inscriptions', request.resource.data.dernier)).data.concoursId == concoursId);
+      allow delete: if isAdmin() || estAuteur(concoursId);
+    }
+
+    // Notifications d'un compte (ex. « votre inscription est validée »)
+    match /notifications/{uid}/items/{notifId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      // Marquer comme lue
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lu']);
+      // Créée par l'organisateur du concours concerné ou un admin
+      allow create: if (isAdmin() || estAuteur(request.resource.data.concoursId))
+        && request.resource.data.keys().hasOnly(['titre', 'texte', 'concoursId', 'lu', 'createdAt'])
+        && request.resource.data.titre is string && request.resource.data.titre.size() <= 120
+        && request.resource.data.texte is string && request.resource.data.texte.size() <= 500
+        && request.resource.data.lu == false;
     }
 
     // Tournoi d'un concours (équipes, poules) : public en lecture, géré par l'organisateur

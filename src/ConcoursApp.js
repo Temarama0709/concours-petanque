@@ -18,6 +18,10 @@ import MonClub, { useProfil } from "./components/MonClub.js";
 import ChoixClub from "./components/ChoixClub.js";
 import { AFFILIATION_VIDE, erreurAffiliation, useClubs } from "./lib/clubs.js";
 import GestionClubs from "./components/GestionClubs.js";
+import Notifications from "./components/Notifications.js";
+import OrganisationConcours from "./components/OrganisationConcours.js";
+import MesInscriptions from "./components/MesInscriptions.js";
+import { estComplet, useCompteurs } from "./lib/inscriptions.js";
 import { compresserAffiche } from "./lib/affiches.js";
 import { EMAIL_VALIDE, FORMATS, FORMAT_LABELS } from "./lib/formats.js";
 import { db, auth } from "./utils/firebase.js";
@@ -66,7 +70,7 @@ const normaliser = (s = "") => s.normalize("NFD").replace(/[\u0300-\u036f]/g, ""
 // Concours organisé par le club de la personne (même club de la liste, ou même nom)
 const estDuClub = (c, profil) =>
   (profil.clubId && c.clubId === profil.clubId) || (!!c.clubNom && normaliser(c.clubNom) === normaliser(profil.clubNom));
-const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "", email: "" };
+const EMPTY_FORM = { title: "", date: "", lieu: "", type: "officiel", format: "", prix: "", ville: "", cp: "", email: "", maxEquipes: "" };
 
 const byDate = (a, b) => (a.date || "").localeCompare(b.date || "");
 
@@ -87,6 +91,8 @@ function ConcoursApp() {
   const [monClubOuvert, setMonClubOuvert] = useState(false);
   const [clubOrga, setClubOrga] = useState({ ...AFFILIATION_VIDE, affilie: true });
   const [filtreMonClub, setFiltreMonClub] = useState(false);
+  const [jeSuisOrganisateur, setJeSuisOrganisateur] = useState(true);
+  const compteurs = useCompteurs();
   const clubs = useClubs();
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -169,6 +175,10 @@ function ConcoursApp() {
       });
     }).catch((e) => console.error("Profil:", e));
   }, [user, profil, profilCharge]);
+
+  // Organisateur d'un concours : admin, auteur (s'il l'a publié en tant qu'organisateur) ou co-organisateur
+  const estOrga = (c) =>
+    isAdmin || (!!user && ((c.auteur === user.uid && c.parOrganisateur !== false) || (c.organisateurs || []).includes(user.uid)));
 
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
   const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
@@ -315,13 +325,20 @@ function ConcoursApp() {
 
   const handleAddConcours = async (e) => {
     e.preventDefault();
-    const { email, ...data } = Object.fromEntries(Object.entries(formData).map(([k, v]) => [k, v.trim()]));
+    const { email: emailSaisi, maxEquipes: maxSaisi, ...data } = Object.fromEntries(Object.entries(formData).map(([k, v]) => [k, v.trim()]));
+    // Publié « pour information » (pas l'organisateur) : pas d'inscriptions en ligne
+    const email = jeSuisOrganisateur ? emailSaisi : "";
+    const maxEquipes = maxSaisi === "" ? 0 : parseInt(maxSaisi, 10);
+    if (jeSuisOrganisateur && (!Number.isInteger(maxEquipes) || maxEquipes < 0 || maxEquipes > 1024)) {
+      setFormError("Le nombre maximum d'équipes doit être entre 1 et 1024 (vide = illimité).");
+      return;
+    }
     if (Object.values(data).some((v) => !v)) {
       setFormError("Tous les champs sont obligatoires.");
       return;
     }
     // L'e-mail de l'organisateur reçoit les inscriptions ; facultatif pour un admin
-    if (!email && !isAdmin) {
+    if (!email && !isAdmin && jeSuisOrganisateur) {
       setFormError("Indiquez votre e-mail pour recevoir les inscriptions.");
       return;
     }
@@ -379,6 +396,8 @@ function ConcoursApp() {
         ...(isAdmin ? {} : { auteur: user.uid }),
         ...(image ? { affiche: true } : {}),
         ...(email ? { inscriptions: true } : {}),
+        ...(jeSuisOrganisateur ? {} : { parOrganisateur: false }),
+        ...(jeSuisOrganisateur && maxEquipes ? { maxEquipes } : {}),
         createdAt: serverTimestamp()
       });
       // L'e-mail reste privé : document séparé, lisible seulement par les admins et le serveur
@@ -466,9 +485,12 @@ function ConcoursApp() {
               <IconUser />
             </button>
           ) : (
-            <button type="button" aria-label="Déconnexion" title="Déconnexion" onClick={() => signOut(auth)} className={boutonHeader}>
-              <IconLogout />
-            </button>
+            <div className="flex gap-2">
+              <Notifications user={user} classeBouton={boutonHeader} />
+              <button type="button" aria-label="Déconnexion" title="Déconnexion" onClick={() => signOut(auth)} className={boutonHeader}>
+                <IconLogout />
+              </button>
+            </div>
           )}
         </div>
         {user && (
@@ -511,6 +533,7 @@ function ConcoursApp() {
       </nav>
 
       <main className="px-5 py-4 space-y-4">
+        {user && <MesInscriptions user={user} concoursList={concoursList} onOuvrir={setSelectedConcours} />}
         {showLogin && !user && (
           <ConnexionForm onSuccess={() => setShowLogin(false)} onCancel={() => setShowLogin(false)} />
         )}
@@ -591,6 +614,29 @@ function ConcoursApp() {
               value={formData.prix}
               onChange={(e) => updateForm("prix", e.target.value)}
             />
+            <label className="flex items-start gap-2 rounded-[10px] bg-fond px-3 py-2 text-sm cursor-pointer">
+              <input type="checkbox" className="mt-0.5 w-5 h-5 accent-navy" checked={jeSuisOrganisateur} onChange={(e) => setJeSuisOrganisateur(e.target.checked)} />
+              <span>
+                <b>Je suis l'organisateur de ce concours</b>
+                <span className="block text-ardoise">
+                  {jeSuisOrganisateur
+                    ? "Vous gérez les inscriptions, leur validation et le tirage."
+                    : "Publié pour information : pas d'inscriptions en ligne. L'admin pourra ajouter le vrai organisateur plus tard."}
+                </span>
+              </span>
+            </label>
+            {jeSuisOrganisateur && (
+            <>
+            <Input
+              type="number"
+              min="1"
+              max="1024"
+              inputMode="numeric"
+              placeholder="Nombre maximum d'équipes (vide = illimité)"
+              aria-label="Nombre maximum d'équipes"
+              value={formData.maxEquipes}
+              onChange={(e) => updateForm("maxEquipes", e.target.value)}
+            />
             <div className="space-y-1">
               <Input
                 type="email"
@@ -603,6 +649,8 @@ function ConcoursApp() {
               />
               <p className="text-xs text-ardoise">Jamais affiché sur le site. Vous recevrez un e-mail à chaque inscription.</p>
             </div>
+            </>
+            )}
             <select aria-label="Type" className={CHAMP_SELECT} value={formData.type} onChange={(e) => updateForm("type", e.target.value)}>
               <option value="officiel">Officiel</option>
               <option value="ouvert">Ouvert à tous</option>
@@ -711,6 +759,9 @@ function ConcoursApp() {
                       {[bloc.jour, FORMAT_LABELS[concours.format] || concours.format, concours.clubNom || concours.lieu].filter(Boolean).join(" · ")}
                     </p>
                     <BadgeType type={concours.type} />
+                    {concours.inscriptions && estComplet(concours, compteurs) && (
+                      <span className="ml-1 inline-block text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-fond text-navy">Complet</span>
+                    )}
                   </div>
                   {aUnPrix(concours) && <span className="font-black shrink-0">{concours.prix} €</span>}
                 </button>
@@ -779,7 +830,18 @@ function ConcoursApp() {
               )}
             </ul>
             <AfficheConcours concours={selectedConcours} />
-            {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && (
+            {selectedConcours.inscriptions && selectedConcours.maxEquipes > 0 && (
+              <p className="text-sm font-bold">
+                {compteurs[selectedConcours.id] || 0} / {selectedConcours.maxEquipes} équipes inscrites
+              </p>
+            )}
+            {selectedConcours.parOrganisateur === false && !(selectedConcours.organisateurs || []).length && (
+              <p className="text-sm text-ardoise">Concours publié pour information : les inscriptions se font auprès de l'organisateur.</p>
+            )}
+            {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && estComplet(selectedConcours, compteurs) && !inscriptionOuverte && (
+              <p className="rounded-[10px] bg-fond px-3 py-2 font-black text-center">Complet</p>
+            )}
+            {selectedConcours.inscriptions && selectedConcours.date >= todayKey() && !estComplet(selectedConcours, compteurs) && (
               inscriptionOuverte ? (
                 <InscriptionForm concours={selectedConcours} user={user} clubParDefaut={profil?.affilie ? profil.clubNom : ""} onTermine={() => setInscriptionOuverte(false)} />
               ) : (
@@ -804,13 +866,16 @@ function ConcoursApp() {
                 Suivre le concours · poules, terrains, scores
               </Button>
             )}
-            {(isAdmin || (user && selectedConcours.auteur === user.uid)) && (
+            {estOrga(selectedConcours) && (
+              <OrganisationConcours concours={selectedConcours} inscrites={compteurs[selectedConcours.id] || 0} user={user} isAdmin={isAdmin} />
+            )}
+            {estOrga(selectedConcours) && (
               <Button variant="outline" className="w-full" onClick={() => setEcranTournoi({ concours: selectedConcours, gestion: true })}>
                 Gérer le concours · équipes, pointage, tirage
               </Button>
             )}
-            {(isAdmin || (user && selectedConcours.auteur === user.uid)) && selectedConcours.inscriptions && (
-              <InscriptionsAdmin concoursId={selectedConcours.id} />
+            {estOrga(selectedConcours) && selectedConcours.inscriptions && (
+              <InscriptionsAdmin concours={selectedConcours} compteur={compteurs[selectedConcours.id] || 0} />
             )}
             {(isAdmin || (user && selectedConcours.auteur === user.uid)) && (
               <Button variant="destructive" className="w-full" onClick={() => handleSupprimer(selectedConcours.id)}>

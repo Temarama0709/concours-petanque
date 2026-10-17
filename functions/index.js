@@ -1,6 +1,6 @@
 const functions = require("firebase-functions/v1");
 const admin = require("firebase-admin");
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { defineSecret, defineString } = require("firebase-functions/params");
 const nodemailer = require("nodemailer");
 
@@ -71,16 +71,18 @@ exports.notifierInscription = onDocumentCreated(
       from,
       to: organisateur,
       replyTo: ins.email || undefined,
-      subject: `Nouvelle inscription : ${concours.title} (${quand})`,
+      subject: `Inscription à valider : ${concours.title} (${quand})`,
       text:
-        `Nouvelle inscription pour « ${concours.title} », ${quand}, ${ou}.\n\n` +
+        `Nouvelle inscription à valider pour « ${concours.title} », ${quand}, ${ou}.\n` +
+        `Validez-la dans l'application (fiche du concours, « À valider »).\n\n` +
         `Joueurs : ${ins.joueurs.join(", ")}\n` +
         (ins.club ? `Club : ${ins.club}\n` : "") +
         `Téléphone : ${ins.telephone}\n` +
         (ins.email ? `E-mail : ${ins.email}\n` : "") +
         `\nÉquipes inscrites à ce jour : ${total}\n\n${SITE}`,
       html:
-        `<p>Nouvelle inscription pour <b>${echapper(concours.title)}</b><br>${echapper(quand)} · ${echapper(ou)}</p>` +
+        `<p>Nouvelle inscription à valider pour <b>${echapper(concours.title)}</b><br>${echapper(quand)} · ${echapper(ou)}</p>` +
+        `<p>Validez-la dans <a href="${SITE}">l'application</a> (fiche du concours, « À valider »).</p>` +
         `<p><b>Joueurs</b><br>${joueurs}</p>` +
         (ins.club ? `<p><b>Club</b> : ${echapper(ins.club)}</p>` : "") +
         `<p><b>Téléphone</b> : ${echapper(ins.telephone)}` +
@@ -97,13 +99,44 @@ exports.notifierInscription = onDocumentCreated(
         subject: `Inscription enregistrée : ${concours.title}`,
         text:
           `Votre inscription au concours « ${concours.title} » (${quand}, ${ou}) a bien été transmise à l'organisateur.\n` +
+          `Elle doit encore être validée : vous recevrez un e-mail dès qu'elle le sera.\n` +
           `Pour toute question, répondez simplement à cet e-mail.\n\n${SITE}`,
         html:
           `<p>Votre inscription au concours <b>${echapper(concours.title)}</b> a bien été transmise à l'organisateur.</p>` +
+          `<p>Elle doit encore être validée : vous recevrez un e-mail dès qu'elle le sera.</p>` +
           `<p>${echapper(quand)}<br>${echapper(ou)}</p>` +
           `<p>Pour toute question, répondez simplement à cet e-mail.</p>`
       });
     }
+  }
+);
+
+// E-mail à l'inscrit quand l'organisateur valide son inscription
+exports.notifierValidation = onDocumentUpdated(
+  { document: "inscriptions/{id}", secrets: [SMTP_URL] },
+  async (event) => {
+    const avant = event.data?.before.data();
+    const ins = event.data?.after.data();
+    if (!ins?.email || ins.statut !== "validee" || avant?.statut === "validee") return;
+    const db = admin.firestore();
+    const [concoursSnap, contactSnap] = await Promise.all([
+      db.doc(`concours/${ins.concoursId}`).get(),
+      db.doc(`contacts/${ins.concoursId}`).get()
+    ]);
+    const concours = concoursSnap.data();
+    if (!concours) return;
+    const quand = dateFr(concours.date);
+    const ou = `${concours.lieu}, ${concours.cp} ${concours.ville}`;
+    await nodemailer.createTransport(SMTP_URL.value()).sendMail({
+      from: EMAIL_EXPEDITEUR.value(),
+      to: ins.email,
+      replyTo: contactSnap.data()?.email || undefined,
+      subject: `Inscription validée : ${concours.title}`,
+      text: `Bonne nouvelle : votre inscription au concours « ${concours.title} » (${quand}, ${ou}) a été validée par l'organisateur.\n\n${SITE}`,
+      html:
+        `<p>Bonne nouvelle : votre inscription au concours <b>${echapper(concours.title)}</b> a été validée par l'organisateur.</p>` +
+        `<p>${echapper(quand)}<br>${echapper(ou)}</p>`
+    });
   }
 );
 
