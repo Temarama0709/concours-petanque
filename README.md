@@ -87,6 +87,16 @@ Pour activer l'envoi (une seule fois) :
    `smtps://IDENTIFIANT:CLE@smtp-relay.brevo.com:465`
 4. `npm run deploy:functions` (l'adresse d'expédition est demandée au premier déploiement).
 
+## Import d'affiches (Facebook, WhatsApp)
+
+Panneau admin, « Importer des affiches » : choisir plusieurs images d'un coup, ou le
+.zip d'un groupe WhatsApp (menu ⋮ → Plus → Exporter la discussion → Inclure les médias).
+Chaque affiche est lue (OCR.space) avec le texte du message WhatsApp qui l'accompagne ;
+la date de publication (dans le nom du fichier) sert à deviner l'année. Les concours
+passés, déjà présents ou incomplets ne sont pas cochés ; l'admin corrige puis publie,
+chaque concours avec son affiche. La clé OCR gratuite limite le rythme : au-delà de
+quelques dizaines d'affiches, « Relire l'affiche » quelques minutes plus tard.
+
 ## Comptes contributeurs et crédits
 
 Seuls les admins et les **contributeurs** peuvent publier un concours ; il n'y a plus de

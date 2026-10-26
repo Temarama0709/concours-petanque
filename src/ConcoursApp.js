@@ -6,6 +6,7 @@ import { Input } from "./components/ui/input.js";
 import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
 import ImportCalendrier from "./components/ImportCalendrier.js";
+import ImportAffiches from "./components/ImportAffiches.js";
 import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
 import InscriptionForm from "./components/InscriptionForm.js";
@@ -257,6 +258,7 @@ function ConcoursApp() {
       ...f,
       title: infos.title || f.title,
       date: infos.date || f.date,
+      lieu: infos.lieu || f.lieu,
       ville: infos.ville || f.ville,
       cp: infos.cp || f.cp,
       format: infos.format || f.format,
@@ -897,6 +899,8 @@ function AdminPanel({ propositions, concoursList, handleValider, handleSupprimer
       <GestionClubs />
 
       <ImportCalendrier concoursExistants={[...concoursList, ...propositions]} />
+
+      <ImportAffiches concoursExistants={[...concoursList, ...propositions]} />
 
       <h2 className="text-[15px] font-black uppercase tracking-wider">
         Anciennes propositions à valider {propositions.length > 0 && `(${propositions.length})`}

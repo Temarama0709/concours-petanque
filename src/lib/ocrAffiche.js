@@ -10,7 +10,11 @@ export async function lireAffiche(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+  return extraireInfos(await lireTexteAffiche(base64, file.type === "application/pdf"));
+}
 
+// Texte brut lu sur une image (data URL), via OCR.space
+export async function lireTexteAffiche(base64, pdf = false) {
   const res = await fetch("https://api.ocr.space/parse/image", {
     method: "POST",
     headers: { apikey: "helloworld" },
@@ -18,13 +22,13 @@ export async function lireAffiche(file) {
       base64Image: base64,
       language: "fre",
       scale: "true",
-      ...(file.type === "application/pdf" ? { filetype: "PDF" } : {})
+      ...(pdf ? { filetype: "PDF" } : {})
     })
   });
   const data = await res.json();
   const text = data?.ParsedResults?.map((r) => r.ParsedText).join("\n") || "";
-  if (!text.trim()) throw new Error("Aucun texte trouvé sur l'affiche.");
-  return extraireInfos(text);
+  if (!text.trim()) throw new Error(data?.ErrorMessage?.[0] || data?.ErrorMessage || "Aucun texte trouvé sur l'affiche.");
+  return text;
 }
 
 const MOIS = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
@@ -79,5 +83,13 @@ export function extraireInfos(text, aujourdhui = new Date()) {
 
   const title = /concours/.test(plat) && /petanque/.test(plat) ? "Concours de pétanque" : "";
 
-  return { title, date, ville, cp, format: formatConcours, prix, type };
+  // Lieu : première ligne qui parle d'un boulodrome, d'une place, d'un stade…
+  const lieu =
+    text
+      .split(/\n/)
+      .map((l) => l.trim())
+      .find((l) => /\b(boulodrome|stade|place|parc|salle|terrain|complexe|esplanade|plaine|camping)\b/i.test(l) && l.length <= 80)
+      ?.replace(/\s+/g, " ") || "";
+
+  return { title, date, lieu, ville, cp, format: formatConcours, prix, type };
 }
