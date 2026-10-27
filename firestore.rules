@@ -115,7 +115,9 @@ service cloud.firestore {
     // Le contributeur ne peut que retirer 1 crédit en publiant un nouveau concours.
     match /contributeurs/{uid} {
       allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
-      allow create, delete: if isAdmin();
+      allow create: if isAdmin();
+      // Retiré par un admin, ou par la personne quand elle supprime son compte
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
       allow update: if isAdmin()
         || (request.auth != null && request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['credits', 'dernierConcours', 'updatedAt'])
@@ -237,7 +239,9 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['presente', 'statut'])
             && request.resource.data.get('presente', false) is bool
             && request.resource.data.get('statut', 'validee') in ['en_attente', 'validee', 'refusee']);
-      allow delete: if isAdmin() || estAuteur(resource.data.concoursId);
+      // L'organisateur retire une équipe ; l'inscrit peut annuler sa propre inscription
+      allow delete: if isAdmin() || estAuteur(resource.data.concoursId)
+        || (request.auth != null && resource.data.get('uid', null) == request.auth.uid);
     }
 
     // Nombre d'équipes inscrites par concours (public) : +1 à chaque inscription du public,
@@ -245,10 +249,19 @@ service cloud.firestore {
     match /compteurs/{concoursId} {
       allow read: if true;
       allow create, update: if isAdmin() || estAuteur(concoursId)
-        || (request.resource.data.keys().hasOnly(['inscrites', 'dernier'])
+        || (request.resource.data.keys().hasOnly(['inscrites', 'dernier', 'retire'])
             && request.resource.data.inscrites == (resource == null ? 0 : resource.data.inscrites) + 1
             && !exists(chemin('inscriptions', request.resource.data.dernier))
-            && getAfter(chemin('inscriptions', request.resource.data.dernier)).data.concoursId == concoursId);
+            && getAfter(chemin('inscriptions', request.resource.data.dernier)).data.concoursId == concoursId)
+        // -1 quand l'inscrit annule sa propre inscription (non refusée), dans le même envoi
+        || (resource != null && request.auth != null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscrites', 'retire'])
+            && request.resource.data.inscrites == resource.data.inscrites - 1
+            && request.resource.data.inscrites >= 0
+            && get(chemin('inscriptions', request.resource.data.retire)).data.get('uid', null) == request.auth.uid
+            && get(chemin('inscriptions', request.resource.data.retire)).data.concoursId == concoursId
+            && get(chemin('inscriptions', request.resource.data.retire)).data.get('statut', 'validee') != 'refusee'
+            && !existsAfter(chemin('inscriptions', request.resource.data.retire)));
       allow delete: if isAdmin() || estAuteur(concoursId);
     }
 

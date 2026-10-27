@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  collection, doc, increment, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch
+  collection, doc, getDoc, increment, onSnapshot, query, runTransaction, serverTimestamp, where, writeBatch
 } from "firebase/firestore";
 import { db } from "../utils/firebase.js";
 
@@ -113,3 +113,14 @@ export function useMesInscriptions(user) {
   return liste;
 }
 
+
+// L'inscrit annule sa propre inscription ; le compteur public est diminué dans le même envoi
+export async function annulerMonInscription(ins) {
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "inscriptions", ins.id));
+  const compteur = await getDoc(doc(db, "compteurs", ins.concoursId));
+  if (compteur.exists() && (compteur.data().inscrites || 0) > 0 && statutDe(ins) !== "refusee") {
+    batch.update(doc(db, "compteurs", ins.concoursId), { inscrites: increment(-1), retire: ins.id });
+  }
+  return batch.commit();
+}

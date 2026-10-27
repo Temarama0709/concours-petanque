@@ -7,6 +7,8 @@ import MultiSelectDepartement from "./components/ui/MultiSelectDepartement.js";
 import MapConcours from "./MapConcours.js";
 import ImportCalendrier from "./components/ImportCalendrier.js";
 import ImportAffiches from "./components/ImportAffiches.js";
+import MonCompte from "./components/MonCompte.js";
+import { LienConfidentialite } from "./components/Confidentialite.js";
 import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
 import InscriptionForm from "./components/InscriptionForm.js";
@@ -90,6 +92,7 @@ function ConcoursApp() {
   const [achatOuvert, setAchatOuvert] = useState(false);
   const [ecranTournoi, setEcranTournoi] = useState(null); // { concours, gestion }
   const [monClubOuvert, setMonClubOuvert] = useState(false);
+  const [monCompteOuvert, setMonCompteOuvert] = useState(false);
   const [clubOrga, setClubOrga] = useState({ ...AFFILIATION_VIDE, affilie: true });
   const [filtreMonClub, setFiltreMonClub] = useState(false);
   const [jeSuisOrganisateur, setJeSuisOrganisateur] = useState(true);
@@ -505,9 +508,14 @@ function ConcoursApp() {
             <button type="button" className="underline decoration-jaune underline-offset-2 text-white" onClick={() => setMonClubOuvert(!monClubOuvert)}>
               {profil?.affilie ? profil.clubNom : "Indiquer mon club"}
             </button>
+            {" · "}
+            <button type="button" className="underline decoration-jaune underline-offset-2 text-white" onClick={() => setMonCompteOuvert(!monCompteOuvert)}>
+              Mon compte
+            </button>
           </p>
         )}
         {user && monClubOuvert && <MonClub user={user} profil={profil} onFermer={() => setMonClubOuvert(false)} />}
+        {user && monCompteOuvert && <MonCompte user={user} onFermer={() => setMonCompteOuvert(false)} />}
         <button
           type="button"
           onClick={() => setShowForm(!showForm)}
@@ -785,6 +793,10 @@ function ConcoursApp() {
           />
         )}
       </main>
+
+      <footer className="px-5 pb-6 text-center text-xs text-ardoise">
+        Concours Pétanque · <LienConfidentialite />
+      </footer>
 
       {ecranTournoi && (
         <EcranTournoi

@@ -7,6 +7,7 @@ import {
 import { Button } from "../components/ui/button.js";
 import { Input } from "../components/ui/input.js";
 import ChoixClub from "../components/ChoixClub.js";
+import { LienConfidentialite } from "../components/Confidentialite.js";
 import { AFFILIATION_VIDE, enregistrerProfil, erreurAffiliation, useClubs } from "../lib/clubs.js";
 
 // Les droits admin ne dépendent plus de l'email ni du mot de passe saisis :
@@ -74,6 +75,11 @@ export default function ConnexionForm({ onSuccess, onCancel }) {
         onChange={(e) => setPassword(e.target.value)}
       />
       {isSignup && <ChoixClub valeur={affiliation} onChange={setAffiliation} />}
+      {isSignup && (
+        <p className="text-xs text-ardoise">
+          En créant un compte, vous acceptez la <LienConfidentialite>politique de confidentialité</LienConfidentialite>.
+        </p>
+      )}
       {message && <p className="text-sm font-semibold text-red-700">{message}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit">{isSignup ? "S'inscrire" : "Se connecter"}</Button>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ConcoursComplet, inscrire } from "../lib/inscriptions.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
+import { LienConfidentialite } from "./Confidentialite.js";
 import { EMAIL_VALIDE, joueursParEquipe } from "../lib/formats.js";
 
 // Inscription d'une équipe à un concours. L'organisateur est prévenu par
@@ -105,7 +106,7 @@ export default function InscriptionForm({ concours, user, clubParDefaut = "", on
       )}
       <label className="flex items-start gap-2 text-sm text-ardoise">
         <input type="checkbox" className="mt-0.5 w-4 h-4 accent-navy" checked={accord} onChange={(e) => setAccord(e.target.checked)} />
-        J'accepte que ces informations soient transmises à l'organisateur pour gérer mon inscription, et que les noms des joueurs apparaissent dans le tableau du concours.
+        J'accepte que ces informations soient transmises à l'organisateur pour gérer mon inscription, et que les noms des joueurs apparaissent dans le tableau du concours (<LienConfidentialite>confidentialité</LienConfidentialite>).
       </label>
       {erreur && <p className="text-sm font-semibold text-red-700">{erreur}</p>}
       <div className="flex gap-2">
