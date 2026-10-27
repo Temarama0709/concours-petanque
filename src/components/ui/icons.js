@@ -30,3 +30,4 @@ export const IconBell = (p) => <Svg {...p}><path d="M6 16V11a6 6 0 0112 0v5l2 2H
 export const IconRoute = (p) => <Svg {...p}><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h7a3.5 3.5 0 000-7H9a3.5 3.5 0 010-7h7" /></Svg>;
 export const IconLogout = (p) => <Svg {...p}><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10" /></Svg>;
 export const IconBoule = (p) => <Svg {...p}><circle cx="12" cy="12" r="8" /><path d="M4.5 9.5c5 2 10 2 15 0M4.5 14.5c5-2 10-2 15 0" /></Svg>;
+export const IconHelp = (p) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01" /></Svg>;

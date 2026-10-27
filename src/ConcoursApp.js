@@ -9,6 +9,7 @@ import ImportCalendrier from "./components/ImportCalendrier.js";
 import ImportAffiches from "./components/ImportAffiches.js";
 import MonCompte from "./components/MonCompte.js";
 import { LienConfidentialite } from "./components/Confidentialite.js";
+import { BoutonAide } from "./components/Aide.js";
 import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
 import InscriptionForm from "./components/InscriptionForm.js";
@@ -485,6 +486,8 @@ function ConcoursApp() {
               <p className="text-[13px] text-navy-soft mt-1">Calendrier &amp; inscriptions faciles</p>
             </div>
           </div>
+          <div className="flex gap-2">
+          <BoutonAide aria-label="Aide" title="Aide" className={boutonHeader} />
           {!user ? (
             <button type="button" aria-label="Connexion" title="Connexion" onClick={() => setShowLogin(!showLogin)} className={boutonHeader}>
               <IconUser />
@@ -497,6 +500,7 @@ function ConcoursApp() {
               </button>
             </div>
           )}
+          </div>
         </div>
         {user && (
           <p className="text-[13px] text-navy-soft">
@@ -795,7 +799,7 @@ function ConcoursApp() {
       </main>
 
       <footer className="px-5 pb-6 text-center text-xs text-ardoise">
-        Concours Pétanque · <LienConfidentialite />
+        Concours Pétanque · <BoutonAide className="underline underline-offset-2">Aide</BoutonAide> · <LienConfidentialite />
       </footer>
 
       {ecranTournoi && (
