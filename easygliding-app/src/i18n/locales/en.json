@@ -1,0 +1,121 @@
+{
+  "common": {
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "back": "Back",
+    "error": "Something went wrong. Please try again.",
+    "minutes": "{{count}} min"
+  },
+  "language": {
+    "title": "Language",
+    "detected": "We detected your language. You can change it at any time in the settings."
+  },
+  "legal": {
+    "title": "Before you start",
+    "intro": "Please read and accept the following documents to use the uSki app.",
+    "safety": "Safety instructions",
+    "terms": "Terms of use",
+    "privacy": "Privacy policy",
+    "notice": "Legal notice",
+    "acceptSafety": "I have read and accept the safety instructions",
+    "acceptTerms": "I accept the terms of use",
+    "acceptPrivacy": "I accept the privacy policy",
+    "read": "Read",
+    "scrollHint": "Scroll the safety instructions to the end to continue.",
+    "acceptAndContinue": "Accept and continue",
+    "updated": "Our terms have been updated. Please accept them again.",
+    "version": "Version {{version}}"
+  },
+  "auth": {
+    "title": "Your uSki account",
+    "subtitle": "The same account works in the app and on uski.fr, so you keep your purchases.",
+    "apple": "Sign in with Apple",
+    "google": "Sign in with Google",
+    "or": "or",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "email": "Email",
+    "password": "Password",
+    "marketing": "I agree to receive uSki news and offers by email",
+    "signUp": "Create my account",
+    "signIn": "Sign in",
+    "magicLink": "Email me a sign-in link",
+    "magicLinkSent": "A sign-in link has been sent to {{email}}.",
+    "forgotPassword": "Forgot password?",
+    "resetSent": "A password reset email has been sent to {{email}}.",
+    "haveAccount": "I already have an account",
+    "noAccount": "Create an account",
+    "invalid": "Please fill in all fields with a valid email.",
+    "verifyEmail": "A confirmation link has been sent to {{email}}.",
+    "biometricPrompt": "Unlock uSki",
+    "unlock": "Unlock"
+  },
+  "home": {
+    "settings": "Settings",
+    "buyMethod": "Buy the full method",
+    "slides": {
+      "s1": "Assemble and adjust your uSki",
+      "s2": "Step 1 — First glides",
+      "s3": "Step 2 — Turns",
+      "s4": "Step 3 — Independence",
+      "buy": "The complete uSki method"
+    },
+    "free": "Free",
+    "locked": "Locked · {{price}}",
+    "unlocked": "Unlocked",
+    "resume": "Resume",
+    "progress": "{{percent}}% watched"
+  },
+  "steps": {
+    "setup": "Assembly and adjustment",
+    "step1": "Step 1",
+    "step2": "Step 2",
+    "step3": "Step 3"
+  },
+  "video": {
+    "keyPoints": "Key points",
+    "speed": "Speed",
+    "nextStep": "Next step",
+    "download": "Download to watch offline",
+    "downloaded": "Available offline",
+    "locked": "This step is not unlocked yet."
+  },
+  "purchase": {
+    "title": "Unlock {{step}}",
+    "description": "Purchases are linked to your uSki account, whichever way you bought them.",
+    "haveCode": "I have a code",
+    "codePlaceholder": "Activation code",
+    "redeem": "Redeem code",
+    "invalidCode": "This code is not valid.",
+    "success": "Unlocked! Enjoy the slopes.",
+    "pendingDecision": "The purchase model (in-app payment, code or both) is still being decided (Q1)."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "account": "Account",
+    "editAccount": "Edit my details",
+    "biometric": "Unlock with Face ID / fingerprint",
+    "signOut": "Sign out",
+    "deleteAccount": "Delete my account",
+    "deleteConfirm": "Your account and all your data will be permanently deleted. Continue?",
+    "delete": "Delete",
+    "purchases": "Purchases",
+    "restore": "Restore my purchases",
+    "restored": "Purchases restored.",
+    "enterCode": "Enter a code",
+    "documents": "Documents",
+    "support": "Help and support",
+    "contact": "Contact support",
+    "assembly": "Assembly guide",
+    "feedback": "Give feedback",
+    "analytics": "Anonymous usage analytics",
+    "version": "Version {{version}}"
+  },
+  "docs": {
+    "safety": "An adult must supervise the child at all times.\n\nA helmet is mandatory.\n\nUse the uSki only on beginner slopes or learning areas.\n\nBefore each session, check the assembly and that the magnetic release works.\n\nThe device does not replace a ski instructor.\n\nDo not use the uSki on ski lifts.\n\n[Draft text — to be written and approved by Alain / Jenna (Q7).]",
+    "terms": "[Terms of use — text to be provided (Q7).]",
+    "privacy": "[Privacy policy — GDPR and Swiss nFADP — text to be provided (Q7).]",
+    "notice": "Publisher: EasyGliding SAS — registered office, company number, publication director: [to be completed].\n\nHosting provider: [to be completed].\n\nIntellectual property: uSki patent and trademark.\n\nData hosted in the EU or Switzerland, in compliance with GDPR and the Swiss nFADP."
+  }
+}
