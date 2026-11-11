@@ -105,6 +105,25 @@ async function remplir() {
 
   // joueur1 est licencié à la Clusienne : il peut filtrer « Mon club »
   await ecrire(`utilisateurs/${joueurs[0]}`, { email: "joueur1@test.fr", affilie: true, departement: "74", clubId: "defaut-74-13", clubNom: "CLUSIENNE PETANQUE", clubAVerifier: false, updatedAt: new Date() });
+  await ecrire(`utilisateurs/${orga}`, { email: "orga@test.fr", affilie: true, departement: "74", clubId: "defaut-74-13", clubNom: "CLUSIENNE PETANQUE", clubAVerifier: false, updatedAt: new Date() });
+
+  // orga gère la Clusienne : quelques licenciés, dont des paiements en attente
+  await ecrire("clubsGestion/defaut-74-13", { clubNom: "CLUSIENNE PETANQUE", gestionnaires: [orga], updatedAt: new Date() });
+  const licencies = [
+    ["MARTIN", "Paul", "07401001", "Senior", "06 11 11 11 11", [["Licence 2027", 45, false], ["Cotisation club", 20, true]], ["Paiera la licence en janvier"]],
+    ["BERNARD", "Lucie", "07401002", "Féminine", "06 22 22 22 22", [["Licence 2027", 45, true]], []],
+    ["PETIT", "René", "07401003", "Vétéran", "06 33 33 33 33", [["Licence 2027", 45, false]], ["Ancien président", "Clés du local"]],
+    ["DURAND", "Hugo", "07401004", "Junior", "", [], []]
+  ];
+  for (let i = 0; i < licencies.length; i++) {
+    const [nom, prenom, licence, categorie, telephone, paiements, commentaires] = licencies[i];
+    await ecrire(`clubsGestion/defaut-74-13/licencies/demo-lic${i + 1}`, {
+      nom, prenom, licence, categorie, telephone, email: "", adresse: "", naissance: "", uid: null, actif: true,
+      paiements: paiements.map(([libelle, montant, paye], k) => ({ id: `p${k}`, libelle, montant, echeance: "2027-01-31", paye, payeLe: paye ? "2026-10-01" : "" })),
+      commentaires: commentaires.map((texte, k) => ({ id: `c${k}`, texte, date: "2026-10-15T18:00:00.000Z", auteur: "orga@test.fr" })),
+      createdAt: new Date(), updatedAt: new Date()
+    });
+  }
 
   const equipes = [
     [["Jean Dupont", "Marc Petit"], "Annecy"], [["Ali Benali", "Luc Girard"], "Annecy"],
@@ -138,7 +157,7 @@ async function remplir() {
   await remplir();
   console.log(`
 ✅ Mode démo prêt. Comptes de test (mot de passe pour tous : ${MOT_DE_PASSE}) :
-   orga@test.fr         organisateur du « Concours de démo », 5 crédits
+   orga@test.fr         organisateur du « Concours de démo », 5 crédits, gestionnaire du club CLUSIENNE PETANQUE
    joueur1@test.fr … joueur4@test.fr   joueurs inscrits au concours de démo (joueur1 : club CLUSIENNE PETANQUE ; joueur4 : en attente de validation)
    nouveau@test.fr      compte sans droits (pour tester la demande de contributeur)
    admin@test.fr        administrateur

@@ -46,6 +46,7 @@ export default function Confidentialite({ onFermer }) {
           <li><b>Les concours publiés</b> : informations du concours, affiche, et l'e-mail de l'organisateur qui reçoit les inscriptions.</li>
           <li><b>Les demandes de compte contributeur</b> : nom, club, téléphone.</li>
           <li><b>Les notifications</b> reçues dans l'application (inscription validée…).</li>
+          <li><b>La gestion des clubs</b> : un club peut tenir la liste de ses licenciés (nom, n° de licence, catégorie, coordonnées, date de naissance), avec des commentaires et le suivi des paiements (licence, cotisation…).</li>
         </ul>
 
         <Titre>Qui voit quoi</Titre>
@@ -54,6 +55,7 @@ export default function Confidentialite({ onFermer }) {
           <li>Le téléphone et l'e-mail d'une inscription ne sont visibles que par l'organisateur du concours et l'administrateur.</li>
           <li>Le jour du concours, les noms des joueurs apparaissent dans le tableau public (poules, parties, scores).</li>
           <li>L'e-mail de l'organisateur n'est jamais affiché.</li>
+          <li>Les fiches des licenciés d'un club ne sont visibles que par les gestionnaires de ce club, désignés par l'administrateur. Ils voient aussi l'e-mail des comptes qui ont indiqué leur club.</li>
         </ul>
 
         <Titre>Pourquoi</Titre>
@@ -73,14 +75,16 @@ export default function Confidentialite({ onFermer }) {
         <Titre>Combien de temps</Titre>
         <p>
           Les inscriptions sont conservées tant que le concours est en ligne et supprimées avec lui.
-          Votre compte est conservé jusqu'à ce que vous le supprimiez.
+          Votre compte est conservé jusqu'à ce que vous le supprimiez. Les fiches de licenciés sont tenues par
+          chaque club, qui les met à jour ou les supprime (par exemple quand un licencié quitte le club).
         </p>
 
         <Titre>Vos droits</Titre>
         <p>
           Vous pouvez consulter, corriger ou supprimer vos données. Pour supprimer votre compte et vos
           inscriptions, connectez-vous puis ouvrez <b>Mon compte → Supprimer mon compte</b>. Vous pouvez aussi
-          annuler une inscription dans <b>Mes inscriptions</b>. Pour toute autre demande, contactez {contact}.
+          annuler une inscription dans <b>Mes inscriptions</b>. Pour votre fiche de licencié, adressez-vous à votre
+          club. Pour toute autre demande, contactez {contact}.
           En cas de désaccord, vous pouvez saisir la CNIL (cnil.fr).
         </p>
       </div>

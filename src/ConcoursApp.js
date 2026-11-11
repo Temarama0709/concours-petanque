@@ -10,6 +10,8 @@ import ImportAffiches from "./components/ImportAffiches.js";
 import MonCompte from "./components/MonCompte.js";
 import { LienConfidentialite } from "./components/Confidentialite.js";
 import { BoutonAide } from "./components/Aide.js";
+import GestionClub from "./components/club/GestionClub.js";
+import { useClubsGeres } from "./lib/club.js";
 import CommuneFields from "./components/CommuneFields.js";
 import AfficheConcours from "./components/AfficheConcours.js";
 import InscriptionForm from "./components/InscriptionForm.js";
@@ -94,6 +96,7 @@ function ConcoursApp() {
   const [ecranTournoi, setEcranTournoi] = useState(null); // { concours, gestion }
   const [monClubOuvert, setMonClubOuvert] = useState(false);
   const [monCompteOuvert, setMonCompteOuvert] = useState(false);
+  const [gestionClubOuverte, setGestionClubOuverte] = useState(false);
   const [clubOrga, setClubOrga] = useState({ ...AFFILIATION_VIDE, affilie: true });
   const [filtreMonClub, setFiltreMonClub] = useState(false);
   const [jeSuisOrganisateur, setJeSuisOrganisateur] = useState(true);
@@ -186,6 +189,7 @@ function ConcoursApp() {
     isAdmin || (!!user && ((c.auteur === user.uid && c.parOrganisateur !== false) || (c.organisateurs || []).includes(user.uid)));
 
   // Publier : admin, ou contributeur avec un accès illimité ou au moins 1 crédit
+  const clubsGeres = useClubsGeres(user, isAdmin);
   const peutPublier = isAdmin || (!!contributeur && (contributeur.illimite || (contributeur.credits || 0) > 0));
 
   // Le club du compte sert par défaut de club organisateur
@@ -547,6 +551,21 @@ function ConcoursApp() {
       </nav>
 
       <main className="px-5 py-4 space-y-4">
+        {user && (isAdmin || clubsGeres.length > 0) && (
+          <button
+            type="button"
+            onClick={() => setGestionClubOuverte(true)}
+            className="w-full flex items-center justify-between gap-3 rounded-xl border-2 border-bord p-3 text-left hover:bg-fond"
+          >
+            <span className="min-w-0">
+              <span className="block text-[15px] font-black uppercase tracking-wider">Gestion du club</span>
+              <span className="block text-sm text-ardoise truncate">
+                {clubsGeres.length ? clubsGeres.map((c) => c.clubNom).join(", ") : "Licenciés, commentaires, paiements"}
+              </span>
+            </span>
+            <span aria-hidden="true" className="text-xl font-black">›</span>
+          </button>
+        )}
         {user && <MesInscriptions user={user} concoursList={concoursList} onOuvrir={setSelectedConcours} />}
         {showLogin && !user && (
           <ConnexionForm onSuccess={() => setShowLogin(false)} onCancel={() => setShowLogin(false)} />
@@ -801,6 +820,10 @@ function ConcoursApp() {
       <footer className="px-5 pb-6 text-center text-xs text-ardoise">
         Concours Pétanque · <BoutonAide className="underline underline-offset-2">Aide</BoutonAide> · <LienConfidentialite />
       </footer>
+
+      {gestionClubOuverte && user && (
+        <GestionClub user={user} isAdmin={isAdmin} clubsGeres={clubsGeres} onFermer={() => setGestionClubOuverte(false)} />
+      )}
 
       {ecranTournoi && (
         <EcranTournoi

@@ -87,6 +87,15 @@ Pour activer l'envoi (une seule fois) :
    `smtps://IDENTIFIANT:CLE@smtp-relay.brevo.com:465`
 4. `npm run deploy:functions` (l'adresse d'expédition est demandée au premier déploiement).
 
+## Gestion des clubs (licenciés, paiements)
+
+Bouton « Gestion du club » (admin et gestionnaires). L'admin active la gestion d'un club
+(`clubsGestion/{clubId}`) et y ajoute des gestionnaires par e-mail. Chaque licencié est une
+fiche `clubsGestion/{clubId}/licencies/{id}` : coordonnées, catégorie, commentaires datés,
+paiements (libellé, montant, échéance, payé). Import Excel/CSV, export CSV pour Excel, et liste
+des comptes de l'application qui ont choisi ce club. Les règles Firestore réservent ces données
+aux gestionnaires du club et à l'admin.
+
 ## Import d'affiches (Facebook, WhatsApp)
 
 Panneau admin, « Importer des affiches » : choisir plusieurs images d'un coup, ou le

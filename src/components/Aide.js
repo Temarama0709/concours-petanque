@@ -118,6 +118,17 @@ export default function Aide({ onFermer }) {
           </Puces>
         </Section>
 
+        <Section titre="🏠 Gérer mon club (licenciés, paiements)">
+          <Puces>
+            <li>L'administrateur active la gestion d'un club et désigne ses <b>gestionnaires</b> (par l'e-mail de leur compte). Le bouton <b>Gestion du club</b> apparaît alors sur leur page d'accueil.</li>
+            <li><b>+ Ajouter</b> crée la fiche d'un licencié. Pour aller plus vite, importez votre liste Excel dans <b>Import, export, accès</b> (colonnes Nom, Prénom, Licence, Téléphone…).</li>
+            <li>Dans une fiche : ajoutez des <b>commentaires</b> (datés) et des <b>paiements</b> (licence, cotisation…) avec une date limite. Cochez un paiement quand il est réglé.</li>
+            <li>Le cadre jaune en haut indique le total <b>en attente</b> ; touchez-le pour voir qui doit encore payer.</li>
+            <li><b>Télécharger la liste</b> donne un fichier Excel avec tout le monde et le reste dû.</li>
+            <li>Les licenciés ne voient pas cette page : seuls l'administrateur et les gestionnaires y ont accès.</li>
+          </Puces>
+        </Section>
+
         <Section titre="❓ Questions fréquentes">
           <Puces>
             <li><b>Je ne reçois pas d'alerte</b> : ouvrez la cloche 🔔 et touchez <b>Activer les alertes</b>. Les alertes arrivent quand l'application est ouverte.</li>

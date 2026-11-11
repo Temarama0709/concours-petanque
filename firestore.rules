@@ -358,9 +358,52 @@ service cloud.firestore {
         && request.resource.data.responsable is string && request.resource.data.responsable.size() <= 80;
     }
 
-    // Profil de chaque compte (club d'affiliation) : modifiable par la personne elle-même
+    // Gestion d'un club (privée) : l'admin désigne les gestionnaires de chaque club
+    function gereClub(clubId) {
+      return isAdmin()
+        || (request.auth != null
+            && request.auth.uid in get(chemin('clubsGestion', clubId)).data.get('gestionnaires', []));
+    }
+
+    function texteCourt(d, champ, max) {
+      return d.get(champ, '') is string && d.get(champ, '').size() <= max;
+    }
+
+    function isValidLicencie(d) {
+      return d.keys().hasOnly(['nom', 'prenom', 'licence', 'categorie', 'telephone', 'email', 'adresse', 'naissance',
+                               'uid', 'actif', 'commentaires', 'paiements', 'createdAt', 'updatedAt'])
+        && d.nom is string && d.nom.size() > 0 && d.nom.size() <= 80
+        && texteCourt(d, 'prenom', 80) && texteCourt(d, 'licence', 20) && texteCourt(d, 'categorie', 30)
+        && texteCourt(d, 'telephone', 20) && texteCourt(d, 'email', 200) && texteCourt(d, 'adresse', 200)
+        && texteCourt(d, 'naissance', 10)
+        && (d.get('uid', null) == null || d.get('uid', null) is string)
+        && d.get('actif', true) is bool
+        && d.get('commentaires', []) is list && d.get('commentaires', []).size() <= 200
+        && d.get('paiements', []) is list && d.get('paiements', []).size() <= 100
+        && d.updatedAt == request.time;
+    }
+
+    match /clubsGestion/{clubId} {
+      // Lisible par ses gestionnaires (requête « mes clubs ») et l'admin
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid in resource.data.get('gestionnaires', []));
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['clubNom', 'gestionnaires', 'updatedAt'])
+        && request.resource.data.clubNom is string && request.resource.data.clubNom.size() <= 80
+        && request.resource.data.gestionnaires is list && request.resource.data.gestionnaires.size() <= 10;
+      allow delete: if isAdmin();
+
+      // Licenciés du club : fiche, commentaires, paiements. Jamais publics.
+      match /licencies/{id} {
+        allow read, delete: if gereClub(clubId);
+        allow create, update: if gereClub(clubId) && isValidLicencie(request.resource.data);
+      }
+    }
+
+    // Profil de chaque compte (club d'affiliation) : modifiable par la personne elle-même ;
+    // lisible par les gestionnaires de son club
     match /utilisateurs/{uid} {
-      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid)
+        || (resource.data.get('clubId', '') != '' && gereClub(resource.data.clubId));
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['email', 'affilie', 'departement', 'clubId', 'clubNom', 'clubAVerifier', 'updatedAt'])
         && request.resource.data.email == request.auth.token.get('email', '')
